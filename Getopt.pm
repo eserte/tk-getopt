@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.38 2000/12/12 23:38:56 eserte Exp $
+# $Id: Getopt.pm,v 1.39 2001/02/08 00:52:25 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998,1999,2000 Slaven Rezic. All rights reserved.
@@ -361,7 +361,15 @@ sub process_options {
     my $options = $self->{'options'};
     foreach ($self->_opt_array) {
 	my $opt = $_->[OPTNAME];
-	if ($_->[OPTEXTRA]{'callback'}) {
+
+	my $callback;
+	if ($fromgui) {
+	    $callback = $_->[OPTEXTRA]{'callback-interactive'};
+	}
+	if (!$callback) {
+	    $callback = $_->[OPTEXTRA]{'callback'};
+	}
+	if ($callback) {
 	    # no warnings here ... it would be too complicated to catch
 	    # all undefined values
 	    my $old_w = $^W;
@@ -371,7 +379,7 @@ sub process_options {
 		  && (!exists $former->{$opt}
 		      || $ {$self->_varref($_)} eq $former->{$opt}))) {
 		local($^W) = $old_w; # fall back to original value
-		&{$_->[OPTEXTRA]{'callback'}};
+		&$callback;
 	    }
 	}
 	if ($_->[OPTEXTRA]{'strict'}) {
@@ -1454,6 +1462,15 @@ pairs with following keys:
 =item alias
 
 An array of aliases also accepted by F<Getopt::Long>.
+
+=item callback
+
+Call a subroutine every time the option changes (e.g. after pressing
+on Apply, Ok or after loading).
+
+=item callback-interactive
+
+Like C<callback>, but only applies in interactive mode.
 
 =item label
 
