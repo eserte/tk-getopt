@@ -1,10 +1,10 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.21 1997/11/21 17:29:23 eserte Exp $
+# $Id: Getopt.pm,v 1.22 1998/01/08 11:45:00 eserte Exp $
 # Author: Slaven Rezic
 #
-# Copyright © 1997 Slaven Rezic. All rights reserved.
+# Copyright (C) 1997, 1998 Slaven Rezic. All rights reserved.
 # This package is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
@@ -28,6 +28,12 @@ sub new {
     if (exists $a{'-opttable'}) {
 	$self->{'opttable'} = delete $a{'-opttable'};
 	foreach (@{$self->{'opttable'}}) {
+	    if (ref $_ eq 'ARRAY' and 
+		defined $_->[3] and
+		ref $_->[3] ne 'HASH') {
+		my %h = splice @$_, 3;
+		$_->[3] = \%h;
+	    }
 	    if (ref $_ eq 'ARRAY' && $_->[0] =~ /\|/) { # handle aliases
 		my($opt, @aliases) = split(/\|/, $_->[0]);
 		$_->[0] = $opt;
@@ -782,7 +788,7 @@ options. The GUI interface will pop up a file dialog for this option.
 
 =item var
 
-Use variable instead of I<$options->{optname}> or I<$opt_optname>
+Use variable instead of I<$options-E<gt>{optname}> or I<$opt_optname>
 to store the value.
 
 =item nogui
@@ -796,10 +802,6 @@ Folowing arguments will be passed to this subroutine:
 a reference to the F<Tk::Getopt> object, Frame object, options entry.
 The subroutine should create a widget in the frame (packing is not
 necessary!) and should return a reference to the created widget.
-
-=item nosafe
-
-Do not use a safe compartment when loading options (see B<load_options>.
 
 =back
 
@@ -853,6 +855,11 @@ variables named I<$opt_XXX>.
 
 This argument is optional and specified the filename for loading and saving
 options.
+
+=item -nosafe
+
+If set to true, do not use a safe compartment when loading options
+(see B<load_options>).
 
 =back
 
