@@ -24,8 +24,9 @@ $loaded = 1;
      'subtype' => 'file',
     }],
    ['exportfile', '=s', undef,
-    {'subtype' => 'file'}],
-    ['dumpfile', '=s', '/tmp/dump', {'subtype' => 'file'}],
+    {'choices' => ["/tmp/export.dat", "$ENV{HOME}/export.dat"],
+     'subtype' => 'file'}],
+   ['dumpfile', '=s', '/tmp/dump', {'subtype' => 'file'}],
    ['autoload', '!', 0,
     {'help' => 'Turns autoloading of the default database file on or off'}],
    
