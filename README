@@ -79,7 +79,7 @@ standard in perl5.005)
 
 =head1 AUTHOR
 
-Slaven Rezic <eserte@cs.tu-berlin.de>
+Slaven Rezic <slaven@rezic.de>
 
 This package is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
