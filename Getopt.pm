@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.46 2003/06/29 20:05:31 eserte Exp $
+# $Id: Getopt.pm,v 1.47 2003/06/29 20:09:19 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998,1999,2000,2003 Slaven Rezic. All rights reserved.
@@ -249,9 +249,9 @@ sub save_options {
 		    } else {
 			$ref = $self->_varref($opt);
 		    }
-		    if (ref $ref eq 'SCALAR') {
+		    if (ref($ref) eq 'SCALAR') {
 			$saveoptions{$opt->[OPTNAME]} = $$ref;
-		    } elsif (ref $ref =~ /^(HASH|ARRAY)$/) {
+		    } elsif (ref($ref) =~ /^(HASH|ARRAY)$/) {
 			$saveoptions{$opt->[OPTNAME]} = $ref;
 		    }
 		}
