@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.20 1997/11/18 19:33:55 eserte Exp $
+# $Id: Getopt.pm,v 1.21 1997/11/21 17:29:23 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright © 1997 Slaven Rezic. All rights reserved.
@@ -274,7 +274,9 @@ sub process_options {
 	if ($_->[3]{'strict'}) {
 	    # check for valid values (valid are: choices and default value)
 	    my $v = $ {$self->_varref($_)};
-	    if (!grep(/^$v$/, (@{$_->[3]{'choices'}}, $_->[2]))) {
+	    my @choices = @{$_->[3]{'choices'}};
+	    push(@choices, $_->[2]) if defined $_->[2];
+	    if (!grep(/^$v$/, @choices)) {
 		if (defined $former) {
 		    warn "Not allowed: " . $ {$self->_varref($_)}
 		    . " for $opt. Using old value $former->{$opt}";
@@ -347,35 +349,43 @@ sub _string_widget {
 
 sub _filedialog_widget {
     my($self, $frame, $opt) = @_;
+    my $topframe = $frame->Frame;
+    my $e;
     if (exists $opt->[3]{'choices'}) {
-	$self->_list_widget($frame, $opt);
+	require Tk::BrowseEntry;
+	$e = $topframe->BrowseEntry(-variable => $self->_varref($opt));
+	my @optlist = @{$opt->[3]{'choices'}};
+	unshift(@optlist, $opt->[2]) if defined $opt->[2];
+	my $o;
+	foreach $o (@optlist) {
+	    $e->insert("end", $o);
+	}
     } else {
-	my $topframe = $frame->Frame;
-	my $e = $topframe->Entry(-textvariable => $self->_varref($opt));
-	$e->pack(-side => 'left');
-	my $b = $topframe->Button
-	  (-text => 'Browse...',
-	   -command => sub {
-	       require Tk::FileDialog;
-	       require File::Basename;
-	       # XXX set FileDialog options via $opt->[3]{'filedialog_opt'}
-	       my $filedialog = $topframe->FileDialog(-Title => 'Select file');
-	       my($dir, $base, $file);
-	       my $act_val = $ {$self->_varref($opt)};
-	       if ($act_val) {
-		   $file = $filedialog->Show
-		     (-Path => File::Basename::dirname($act_val),
-		      -File => File::Basename::basename($act_val));
-	       } else {
-		   $file = $filedialog->Show;
-	       }
-	       if ($file) {
-		   $ {$self->_varref($opt)} = $file;
-	       }
-	   });
-	$b->pack(-side => 'left');
-	$topframe;
+	$e = $topframe->Entry(-textvariable => $self->_varref($opt));
     }
+    $e->pack(-side => 'left');
+    my $b = $topframe->Button
+      (-text => 'Browse...',
+       -command => sub {
+	   require Tk::FileDialog;
+	   require File::Basename;
+	   # XXX set FileDialog options via $opt->[3]{'filedialog_opt'}
+	   my $filedialog = $topframe->FileDialog(-Title => 'Select file');
+	   my($dir, $base, $file);
+	   my $act_val = $ {$self->_varref($opt)};
+	   if ($act_val) {
+	       $file = $filedialog->Show
+		 (-Path => File::Basename::dirname($act_val),
+		  -File => File::Basename::basename($act_val));
+	   } else {
+	       $file = $filedialog->Show;
+	   }
+	   if ($file) {
+	       $ {$self->_varref($opt)} = $file;
+	   }
+       });
+    $b->pack(-side => 'left');
+    $topframe;
 }
 
 # Creates one page of the Notebook widget
