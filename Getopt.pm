@@ -1,14 +1,14 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.45 2002/08/02 12:55:32 eserte Exp $
+# $Id: Getopt.pm,v 1.46 2003/06/29 20:05:31 eserte Exp $
 # Author: Slaven Rezic
 #
-# Copyright (C) 1997,1998,1999,2000 Slaven Rezic. All rights reserved.
+# Copyright (C) 1997,1998,1999,2000,2003 Slaven Rezic. All rights reserved.
 # This package is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
-# Mail: slaven.rezic@berlin.de
+# Mail: slaven@rezic.de
 # WWW:  http://user.cs.tu-berlin.de/~eserte/
 #
 
@@ -24,7 +24,7 @@ use constant OPTTYPE  => 1;
 use constant DEFVAL   => 2;
 use constant OPTEXTRA => 3;
 
-$VERSION = '0.48';
+$VERSION = '0.49';
 
 $DEBUG = 0;
 $x11_pass_through = 0;
@@ -184,7 +184,7 @@ sub set_defaults {
 	    } elsif ($ref eq 'SCALAR') {
 		$ {$self->_varref($opt)} = $opt->[DEFVAL];
 	    } else {
-		die "Invalid reference type for option $opt->[OPTNAME]";
+		die "Invalid reference type for option $opt->[OPTNAME] while setting the default value (maybe you should specify <undef> as the default value)";
 	    }
 	}
     }
@@ -243,11 +243,17 @@ sub save_options {
 	    my $opt;
 	    foreach $opt ($self->_opt_array) {
 		if (!$opt->[OPTEXTRA]{'nosave'}) {
-		    if (ref($self->_varref($opt)) eq 'SCALAR') {
-			$saveoptions{$opt->[OPTNAME]} = $ {$self->_varref($opt)}
-		    } elsif (ref($self->_varref($opt)) =~ /^(HASH|ARRAY)$/) {
-			$saveoptions{$opt->[OPTNAME]} = $self->_varref($opt);
-		    } 
+		    my $ref;
+		    if ($opt->[OPTEXTRA]{'savevar'}) {
+			$ref = $opt->[OPTEXTRA]{'savevar'};
+		    } else {
+			$ref = $self->_varref($opt);
+		    }
+		    if (ref $ref eq 'SCALAR') {
+			$saveoptions{$opt->[OPTNAME]} = $$ref;
+		    } elsif (ref $ref =~ /^(HASH|ARRAY)$/) {
+			$saveoptions{$opt->[OPTNAME]} = $ref;
+		    }
 		}
 	    }
 	    if (Data::Dumper->can('Dumpxs')) {
@@ -394,11 +400,12 @@ sub process_options {
 	    if (!grep($_ eq $v, @choices)) {
 		if (defined $former) {
 		    warn "Not allowed: " . $ {$self->_varref($_)}
-		    . " for $opt. Using old value $former->{$opt}";
+		    . " for -$opt. Using old value $former->{$opt}";
 		    $ {$self->_varref($_)} = $former->{$opt};
 		} else {
 		    die "Not allowed: "
-		      . $ {$self->_varref($_)} . " for $opt";
+		      . $ {$self->_varref($_)} . " for -$opt\n"
+		      . "Allowed is only: " . join(", ", @choices);
 		}
 	    }
 	}
@@ -1468,6 +1475,12 @@ a reference to the option editor window.
 
 Disable saving of options.
 
+=item -savevar
+
+When saving with the C<saveoptions> method, use the specified variable
+reference instead of the C<-var> reference. This is useful if C<-var>
+is a subroutine reference.
+
 =item -buttons
 
 Specify, which buttons should be drawn. It is advisable to draw at
@@ -1779,7 +1792,7 @@ This should be done only by Apply and Ok buttons.
 
 =head1 AUTHOR
 
-Slaven Rezic <slaven.rezic@berlin.de>
+Slaven Rezic <slaven@rezic.de>
 
 This package is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
