@@ -1,5 +1,8 @@
 Revision history for Perl extension Tk::Getopt.
 
+0.44
+	- new subtypes: font and geometry
+
 0.43
 	- new feature: separators
 	- string entries have -length and -maxsize options
