@@ -1,14 +1,14 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.42 2001/10/07 12:42:12 eserte Exp $
+# $Id: Getopt.pm,v 1.43 2002/03/06 00:01:51 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998,1999,2000 Slaven Rezic. All rights reserved.
 # This package is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
-# Mail: eserte@cs.tu-berlin.de
+# Mail: slaven.rezic@berlin.de
 # WWW:  http://user.cs.tu-berlin.de/~eserte/
 #
 
@@ -383,7 +383,8 @@ sub process_options {
 		&$callback;
 	    }
 	}
-	if ($_->[OPTEXTRA]{'strict'}) {
+	if ($_->[OPTEXTRA]{'strict'} &&
+	    UNIVERSAL::isa($_->[OPTEXTRA]{'choices'},'ARRAY')) {
 	    # check for valid values (valid are: choices and default value)
 	    my $v = $ {$self->_varref($_)};
 	    my @choices = @{$_->[OPTEXTRA]{'choices'}};
@@ -1735,7 +1736,7 @@ This should be done only by Apply and Ok buttons.
 
 =head1 AUTHOR
 
-Slaven Rezic <eserte@cs.tu-berlin.de>
+Slaven Rezic <slaven.rezic@berlin.de>
 
 This package is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
