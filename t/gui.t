@@ -17,7 +17,7 @@ $loaded = 1;
 
 @opttable =
   (#'loading',
-   ['adbfile', '=s', undef, 
+   ['adbfile', '=s', undef,
     {'alias' => ['f'],
      'help' => 'The default database file',
      'longhelp' => "This is an example for a longer help\nYou can use multiple lines\n",
@@ -30,16 +30,18 @@ $loaded = 1;
    ['datadir', '=s', '/tmp', {'subtype' => 'dir'}],
    ['autoload', '!', 0,
     {'help' => 'Turns autoloading of the default database file on or off'}],
-   
+
    'x11',
    ['', '', "X11 related options like colors and fonts.\nThis is named `X11', but is also relevant for other windowing systems."],
-   ['bg', '=s', undef, 
+   ['bg', '=s', undef,
     {'callback' =>
      sub {
 	 if ($options->{'bg'}) {
-	     $top->optionAdd("*background" => $options->{'bg'}, 'userDefault');
-	     $top->optionAdd("*backPageColor" => $options->{'bg'},
-			     'userDefault');
+	     foreach (qw(background
+			 backPageColor
+			 highlightBackground)) {
+		 $top->optionAdd("*$_" => $options->{'bg'}, 'userDefault');
+	     }
 	 }
      },
      'help' => 'Background color'}],
@@ -99,13 +101,13 @@ $loaded = 1;
     {'help' => 'Use intern image viewer if possible'}],
    ['browsercmd', '=s', '#NETSCAPE %s',
     {'choices' => ['#WEB %s', 'mosaic %s', '#XTERM lynx %s']}],
-   ['mailcmd', '=s', '#XTERM mail %s', 
+   ['mailcmd', '=s', '#XTERM mail %s',
     {'choices' => ['#NETSCAPE mailto:%s', '#XTERM elm %s']}],
    ['netscape', '=s', 'netscape',
     {'help' => 'Path to the netscape executable'}],
    ['xterm', '=s', 'xterm -e %s',
     {'choices' => ['color_xterm -e %s', 'rxvt -e %s']}],
-   
+
    'dialing',
    ['devphone', '=s', '/dev/cuaa1',
     {'help' => 'The phone or modem device'}],
@@ -115,13 +117,15 @@ $loaded = 1;
    ['dialat', '=s', 'ATD',
     {'choices' => ['ATDT', 'ATDP'],
      'help' => 'Use ATDT for tone and ATDP for pulse dialing'}],
-   
+
    'adr2tex',
    ['adr2tex-cols', '=i', 8, {'range' => [2, 16],
 			      'help' => 'Number of columns'}],
-   ['adr2tex-rows', '=i', undef, {'help' => 'Number of rows'}],
-   ['adr2tex-width', '=f', undef, {'help' => 'page width in in'}],
-   ['adr2tex-font', '=s', 'sf', 
+   ['adr2tex-rows', '=i', undef,
+    'help' => 'Number of rows', -from => 1, -to => 20],
+   ['adr2tex-width', '=f', undef,
+    'help' => 'page width in in', -from => 0],
+   ['adr2tex-font', '=s', 'sf',
     {'choices' => ['cmr5', 'cmr10', 'cmr17', 'cmss10', 'cmssi10',
 		   'cmtt10 scaled 500', 'cmtt10']}],
    ['adr2tex-headline', '=s', 1,
@@ -129,7 +133,7 @@ $loaded = 1;
    ['adr2tex-footer', '=s', 1,
     {'help' => 'Print a footer (default footer: 1)'}],
    ['adr2tex-usecrogersort', '!', 1],
-   
+
   );
 
 $options = {};
@@ -182,13 +186,17 @@ $w = $opt->option_editor($top,
 $timer->cancel;
 
 $w = $opt->option_editor($top,
-                         -buttons => [qw/ok apply cancel defaults/]);
+			 -transient => $top,
+                         -buttons => [qw/ok apply cancel defaults/],
+			 -delaypagecreate => 0,
+			);
 $w->resizable(0,0);
 $w->OnDestroy(sub {$top->destroy});
 
 $timerlen = ($batch_mode ? 1000 : 5*1000);
 $top->after($timerlen, sub { $w->destroy });
 
+#$top->WidgetDump;
 
 MainLoop;
 #foreach (sort keys %$options) {
