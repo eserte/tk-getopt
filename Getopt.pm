@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.36 2000/09/29 00:05:38 eserte Exp $
+# $Id: Getopt.pm,v 1.37 2000/11/16 23:58:11 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998,1999,2000 Slaven Rezic. All rights reserved.
@@ -162,6 +162,12 @@ sub _varref {
 	($v = $opt->[OPTNAME]) =~ s/\W/_/g;
 	eval q{\$} . $self->{'caller'} . q{::opt_} . $v; # XXX @, %
     }
+}
+
+sub _is_separator {
+    my $opt = shift;
+    defined $opt->[OPTNAME] && $opt->[OPTNAME] eq '' &&
+    defined $opt->[DEFVAL]  && $opt->[DEFVAL] eq '-';
 }
 
 sub set_defaults {
@@ -466,28 +472,81 @@ sub _string_widget {
 	$self->_list_widget($frame, $opt);
     } else {
 	my($e, $ee) = $self->_fix_layout
-	    ($frame, "Entry", -textvariable => $self->_varref($opt));
-	if ($args{-restrict}) {
+	    ($frame, "Entry",
+	     (defined $opt->[OPTEXTRA]{'length'}
+	      ? (-width => $opt->[OPTEXTRA]{'length'}) : ()),
+	     -textvariable => $self->_varref($opt));
+	if ($args{-restrict} || defined $opt->[OPTEXTRA]{'maxsize'}) {
+	    my $restrict_int   = sub { $_[0] =~ /^([+-]?\d+|)$/ };
+	    my $restrict_float = sub {
+		$_[0] =~ /^(|([+-]?)(?=\d|\.\d)\d*(\.\d*)?([Ee]([+-]?\d+))?)$/
+	    };
+	    my $restrict_len   = sub {
+		length $_[0] <= $opt->[OPTEXTRA]{'maxsize'}
+	    };
 	    eval {
-		if ($args{-restrict} eq "=i") {
-		    $ee->configure
-			(-validate => "all",
-			 -vcmd => sub {
-			     $_[0] =~ /^([+-]?\d+|)$/
-			 },
-			);
-		} elsif ($args{-restrict} eq "=f") {
-		    $ee->configure
-			(-validate => "all",
-			 -vcmd => sub {
-			     $_[0] =~ /^(|([+-]?)(?=\d|\.\d)\d*(\.\d*)?([Ee]([+-]?\d+))?)$/
-			 },
-			);
-		}
+		$ee->configure
+		    (-validate => "all",
+		     -vcmd => sub {
+			 ($args{-restrict} ne "=i" || $restrict_int->($_[0]))
+			     &&
+			 ($args{-restrict} ne "=f" || $restrict_float->($_[0]))
+			     &&
+			 (!defined $opt->[OPTEXTRA]{'maxsize'} || $restrict_len->($_[0]))
+		     });
 	    };
 	    warn $@ if $@;
 	}
 	$e;
+    }
+}
+
+sub _dir_select {
+    my($top, $curr_dir) = @_;
+    require Tk::DirTree;
+    my $t = $top->Toplevel;
+    $t->title("Choose directory:");
+    my $ok = 0; # flag: "1" means OK, "-1" means cancelled
+
+    # Create Frame widget before the DirTree widget, so it's always visible
+    # if the window gets resized.
+    my $f = $t->Frame->pack(-fill => "x", -side => "bottom");
+
+    my $d;
+    $d = $t->Scrolled('DirTree',
+		      -scrollbars => 'osoe',
+		      -width => 35,
+		      -height => 20,
+		      -selectmode => 'browse',
+		      -exportselection => 1,
+		      -browsecmd => sub { $curr_dir = shift;
+					  if ($^O ne 'MSWin32') {
+					      $curr_dir =~ s|^//|/|; # bugfix
+					  }
+				        },
+
+		      # With this version of -command a double-click will
+		      # select the directory
+		      -command   => sub { $ok = 1 },
+
+		      # With this version of -command a double-click will
+		      # open a directory. Selection is only possible with
+		      # the Ok button.
+		      #-command   => sub { $d->opencmd($_[0]) },
+		     )->pack(-fill => "both", -expand => 1);
+    # Set the initial directory
+    $d->chdir($curr_dir);
+
+    $f->Button(-text => 'Ok',
+	       -command => sub { $ok =  1 })->pack(-side => 'left');
+    $f->Button(-text => 'Cancel',
+	       -command => sub { $ok = -1 })->pack(-side => 'left');
+    $f->waitVariable(\$ok);
+    $t->destroy;
+    if ($ok == 1) {
+	$curr_dir;
+    } else {
+	undef;
     }
 }
 
@@ -518,8 +577,12 @@ sub _filedialog_widget {
        -command => sub {
 	   require File::Basename;
 	   my($fd, $filedialog);
-	   if ($Tk::VERSION >= 800 && $subtype ne 'dir') {
-	       $fd = 'getOpenFile';
+	   if ($Tk::VERSION >= 800) {
+	       if ($subtype eq 'dir') {
+		   $fd = '_dir_select';
+	       } else {
+		   $fd = 'getOpenFile';
+	       }
 	   } else {
 	       $fd = 'FileDialog';
 	       eval {
@@ -552,6 +615,8 @@ sub _filedialog_widget {
 # XXX erst ab 800.013 (?)
 #						  -force => 1,
 						 );
+	       } elsif ($fd eq '_dir_select') {
+		   $file = _dir_select($topframe, $dir);
 	       } elsif ($fd eq 'FileDialog') {
 		   $file = $filedialog->Show(-Path => $dir,
 					     -File => $base);
@@ -567,6 +632,9 @@ sub _filedialog_widget {
 	   } else {
 	       if ($fd eq 'getOpenFile') {
 		   $file = $topframe->getOpenFile(-title => 'Select file');
+	       } elsif ($fd eq '_dir_select') {
+		   require Cwd;
+		   $file = _dir_select($topframe, Cwd::cwd());
 	       } else {
 		   if ($subtype eq 'dir') {
 		       $file = $filedialog->Show(-verify => [qw(-d)]);
@@ -575,7 +643,7 @@ sub _filedialog_widget {
 		   }
 	       }
 	   }
-	   if ($file) {
+	   if (defined $file && $file ne "") {
 	       $ {$self->_varref($opt)} = $file;
 	   }
        });
@@ -612,6 +680,21 @@ sub _create_page {
 
     foreach $opt (@{$optlist->{$current_top}}) {
 	my $f = $current_page;
+	$row++;
+	if (_is_separator($opt)) {
+	    my $separator = $f->Frame(-height => 2,
+				     )->grid(-row => $row,
+					     -column => 0,
+					     -columnspan => 3,
+					     -pady => 3,
+					     -padx => 3,
+					     -sticky => "ew");
+	    $separator->configure
+		(-fg => $separator->cget(-bg),
+		 -bg => $separator->Darken($separator->cget(-bg), 60));
+	    next;
+	}
+
 	my $label;
 	my $w;
 	if (exists $opt->[OPTEXTRA]{'label'}) {
@@ -622,7 +705,6 @@ sub _create_page {
 		$label = $2;
 	    }
 	}
-	$row++;
 	my $lw = $f->Label(-text => $label)->grid(-row => $row, -column => 0,
 						  -sticky => 'w');
 	if (exists $opt->[OPTEXTRA]{'widget'}) {
@@ -700,6 +782,7 @@ sub option_editor {
     my $buttons   = delete $a{'-buttons'};
     my $toplevel  = delete $a{'-toplevel'} || 'Toplevel';
     my $pack      = delete $a{'-pack'};
+    my $transient = delete $a{'-transient'};
     my $use_statusbar = delete $a{'-statusbar'};
     my $wait      = delete $a{'-wait'};
     my $string    = delete $a{'-string'};
@@ -749,6 +832,7 @@ sub option_editor {
     my $cmd = '$top->' . $toplevel . '(%a)';
     my $opt_editor = eval $cmd;
     die "$@ while evaling $cmd" if $@;
+    $opt_editor->transient($transient) if $transient;
     eval { $opt_editor->configure(-title => $string->{optedit}) };
     my $opt_notebook = ($dont_use_notebook ?
 			$opt_editor->Frame :
@@ -806,7 +890,7 @@ sub option_editor {
 		     -anchor => 'w',
 		     ($delay_page_create?(-createcmd => $page_create_page):()),
 		    );
-            } elsif ($opt->[OPTNAME] eq '') {
+            } elsif ($opt->[OPTNAME] eq '' && !_is_separator($opt)) {
 		$msglist->{$current_top} = $opt->[DEFVAL];
 	    } else {
 		push @{$optlist->{$current_top}}, $opt
@@ -1112,6 +1196,9 @@ This message can be multi-line.
 Example:
     ['', '', 'This is an explanation for this option group.']
 
+To insert horizontal lines, use:
+    ['', '', '-']
+
 Here is an example for a simple opttable:
 
     @opttable =
@@ -1250,6 +1337,13 @@ option editor, e.g. C<Frame> to embed the editor into another toplevel
 widget (do not forget to pack the frame!). See also the C<-pack>
 option below.
 
+=item -transient
+
+Set the transient flag on the toplevel window. See the description of
+the transient method in L<Tk::Wm>.
+
+    -transient => $mw
+
 =item -pack
 
 If using C<-toplevel> with a non-Toplevel widget (e.g. Frame) and
@@ -1387,6 +1481,14 @@ to store the value.
 =item nogui
 
 This option will not have an entry in the GUI.
+
+=item size
+
+Create an entry with the specified size.
+
+=item maxlength
+
+Restrict the maximum number of characters in entries.
 
 =item widget
 
