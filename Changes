@@ -1,5 +1,10 @@
 Revision history for Perl extension Tk::Getopt.
 
+0.34  
+	- -opttable variant accepts aliases
+	- subtype => 'file' and choices => ['...'] may be used together
+	- bug fixes
+
 0.32  Wed Nov 12 00:10:19 CET 1997
 	- use FileDialog widget (subtype => 'file')
 	- many bug fixes and optimizations
