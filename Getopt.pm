@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.15 1997/11/07 00:20:26 eserte Exp $
+# $Id: Getopt.pm,v 1.16 1997/11/11 23:08:40 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright © 1997 Slaven Rezic. All rights reserved.
@@ -17,9 +17,9 @@ require 5.003;
 use strict;
 use vars qw($loadoptions $VERSION);
 
-$VERSION = '0.32';
+$VERSION = '0.33';
 
-sub new ($%) {
+sub new {
     my($pkg, %a) = @_;
     my $self = {};
 
@@ -95,7 +95,7 @@ sub new ($%) {
 }
 
 # Returns a list with all option names
-sub _opt_array ($) {
+sub _opt_array {
     my $self = shift;
     my @res;
     foreach (@{$self->{'opttable'}}) {
@@ -105,7 +105,7 @@ sub _opt_array ($) {
 }
 
 # Returns a reference to the option variable given by $opt
-sub _varref ($$) {
+sub _varref {
     my($self, $opt) = @_;
     if($opt->[3]{'var'}) {
 	$opt->[3]{'var'};
@@ -120,7 +120,7 @@ sub _varref ($$) {
     }
 }
 
-sub set_defaults ($) {
+sub set_defaults {
     my $self = shift;
     my $opt;
     foreach $opt ($self->_opt_array) {
@@ -130,7 +130,7 @@ sub set_defaults ($) {
     }
 }
 
-sub load_options ($;$) {
+sub load_options {
     my($self, $filename) = @_;
     $filename = $self->{'filename'} if !$filename;
     return if !$filename;
@@ -159,7 +159,7 @@ sub load_options ($;$) {
     1;
 }
 
-sub save_options ($;$) {
+sub save_options {
     my($self, $filename) = @_;
     $filename = $self->{'filename'} if !$filename;
     die "Saving disabled" if !$filename;
@@ -194,7 +194,7 @@ sub save_options ($;$) {
     }
 }
 
-sub get_options ($) {
+sub get_options {
     my $self = shift;
     my %getopt;
     my $opt;
@@ -213,19 +213,19 @@ sub get_options ($) {
 
 # Builds a string for Getopt::Long. Arguments are option name and option
 # type (e.g. '!' or '=s').
-sub _getopt_long_string ($$) {
+sub _getopt_long_string {
     my($option, $type) = @_;
     $option . (length($option) == 1 && ($type eq '' || $type eq '!')
 	       ? '' : $type);
 }
 
 # Prints option name with one or two dashes
-sub _getopt_long_dash ($) {
+sub _getopt_long_dash {
     my $option = shift;
     (length($option) == 1 ? '' : '-') . "-$option";
 }
 
-sub usage ($) {
+sub usage {
     my $self = shift;
     my $usage = "Usage: $0 [options]\n";
     my $opt;
@@ -245,16 +245,21 @@ sub usage ($) {
     $usage;
 }
 
-sub process_options ($$;$) {
+sub process_options {
     my($self, $former, $fromgui) = @_;
     my $options = $self->{'options'};
     foreach ($self->_opt_array) {
 	my $opt = $_->[0];
-	if (defined $_->[3] && exists $_->[3]{'callback'}) {
+	if ($_->[3]{'callback'}) {
+	    # no warnings here ... it would be too complicated to catch 
+	    # all undefined values
+	    my $old_w = $^W;
+	    local($^W) = 0; 
 	    # execute callback if value has changed
 	    if (!(defined $former
 		  && (!exists $former->{$opt} 
 		      || $ {$self->_varref($_)} eq $former->{$opt}))) {
+		local($^W) = $old_w; # fall back to original value
 		&{$_->[3]{'callback'}};
 	    }
 	}
@@ -275,12 +280,12 @@ sub process_options ($$;$) {
     }
 }
 
-sub _boolean_widget ($$$) {
+sub _boolean_widget {
     my($self, $frame, $opt) = @_;
     $frame->Checkbutton(-variable => $self->_varref($opt));
 }
 
-sub _number_widget ($$$) {
+sub _number_widget {
     my($self, $frame, $opt) = @_;
     $frame->Scale
       (-orient => 'horizontal',
@@ -292,7 +297,7 @@ sub _number_widget ($$$) {
       );
 }
 
-sub _integer_widget ($$$) {
+sub _integer_widget {
     my($self, $frame, $opt) = @_;
     if (exists $opt->[3]{'range'}) {
 	$self->_number_widget($frame, $opt);
@@ -301,7 +306,7 @@ sub _integer_widget ($$$) {
     }
 }
 
-sub _float_widget ($$$) {
+sub _float_widget {
     my($self, $frame, $opt) = @_;
     if (exists $opt->[3]{'range'}) {
 	$self->_number_widget($frame, $opt);
@@ -310,7 +315,7 @@ sub _float_widget ($$$) {
     }
 }
 
-sub _list_widget ($$$) {
+sub _list_widget {
     my($self, $frame, $opt) = @_;
     require Tk::BrowseEntry;
     my $w = $frame->BrowseEntry(-variable => $self->_varref($opt));
@@ -323,7 +328,7 @@ sub _list_widget ($$$) {
     $w;
 }
 
-sub _string_widget ($$$) {
+sub _string_widget {
     my($self, $frame, $opt) = @_;
     if (exists $opt->[3]{'choices'}) {
 	$self->_list_widget($frame, $opt);
@@ -332,7 +337,7 @@ sub _string_widget ($$$) {
     }
 }
 
-sub _fileselect_widget ($$$) {
+sub _filedialog_widget {
     my($self, $frame, $opt) = @_;
     if (exists $opt->[3]{'choices'}) {
 	$self->_list_widget($frame, $opt);
@@ -343,9 +348,19 @@ sub _fileselect_widget ($$$) {
 	my $b = $topframe->Button
 	  (-text => 'Browse...',
 	   -command => sub {
-	       require Tk::FileSelect;
-	       my $filedialog = $topframe->FileSelect;
-	       my $file = $filedialog->Show;
+	       require Tk::FileDialog;
+	       require File::Basename;
+	       # XXX set FileDialog options via $opt->[3]{'filedialog_opt'}
+	       my $filedialog = $topframe->FileDialog(-Title => 'Select file');
+	       my($dir, $base, $file);
+	       my $act_val = $ {$self->_varref($opt)};
+	       if ($act_val) {
+		   $file = $filedialog->Show
+		     (-Path => File::Basename::dirname($act_val),
+		      -File => File::Basename::basename($act_val));
+	       } else {
+		   $file = $filedialog->Show;
+	       }
 	       if ($file) {
 		   $ {$self->_varref($opt)} = $file;
 	       }
@@ -361,7 +376,7 @@ sub _fileselect_widget ($$$) {
 #   $current_top: title of Notebook page
 #   $optlist: list of options for this Notebook page
 #   $balloon: Balloon widget
-sub _create_page ($$$$$$) {
+sub _create_page {
     my($self, $current_page, $optnote, $current_top, $optlist, $balloon) = @_;
     $current_page = $optnote->{$current_top} if !defined $current_page;
     my $opt;
@@ -391,10 +406,9 @@ sub _create_page ($$$$$$) {
 	} elsif (defined $opt->[1] && $opt->[1] =~ /f/) {
 	    $w = $self->_float_widget($f, $opt);
 	} elsif (defined $opt->[1] && $opt->[1] =~ /s/) {
-	    # XXX weitere Möglichkeiten: exefile, file mit pattern... etc.
 	    if (defined $opt->[3] && exists $opt->[3]{'subtype'} &&
 		$opt->[3]{'subtype'} eq 'file') {
-		$w = $self->_fileselect_widget($f, $opt);
+		$w = $self->_filedialog_widget($f, $opt);
 	    } else {
 		$w = $self->_string_widget($f, $opt);
 	    }
@@ -424,7 +438,7 @@ sub _create_page ($$$$$$) {
     }
 }
 
-sub _do_undo ($) {
+sub _do_undo {
     my($self, $undo_options) = @_;
     my $opt;
     foreach $opt ($self->_opt_array) {
@@ -436,7 +450,7 @@ sub _do_undo ($) {
     }
 }
 
-sub option_editor ($$;%) {
+sub option_editor {
     my($self, $top, %a) = @_;
     my $callback  = delete $a{'-callback'};
     my $nosave    = delete $a{'-nosave'};
@@ -599,9 +613,10 @@ sub option_editor ($$;%) {
     }
 
     $opt_editor->bind('<Escape>' => sub { $cancel_button->invoke });
-    $opt_editor->bind('<Alt-o>' => sub { $ok_button->invoke });
 
-    eval { $opt_editor->Popup };
+    if ($opt_editor->can('Popup')) {
+	$opt_editor->Popup;
+    }
     if ($wait) {
 	my $wait_var = 1;
 	$opt_editor->OnDestroy(sub { undef $wait_var });
