@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.41 2001/05/06 10:00:29 eserte Exp $
+# $Id: Getopt.pm,v 1.42 2001/10/07 12:42:12 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998,1999,2000 Slaven Rezic. All rights reserved.
@@ -24,7 +24,7 @@ use constant OPTTYPE  => 1;
 use constant DEFVAL   => 2;
 use constant OPTEXTRA => 3;
 
-$VERSION = '0.45';
+$VERSION = '0.46';
 
 $DEBUG = 0;
 $x11_pass_through = 0;
@@ -523,6 +523,11 @@ sub _string_widget {
 
 sub _dir_select {
     my($top, $curr_dir) = @_;
+
+    if (eval { require Tk::DirSelect; Tk::DirSelect->VERSION("1.03"); 1 }) {
+	return $top->DirSelect(-directory => $curr_dir)->Show;
+    }
+
     require Tk::DirTree;
     my $t = $top->Toplevel;
     $t->title("Choose directory:");
@@ -561,8 +566,9 @@ sub _dir_select {
 	       -command => sub { $ok =  1 })->pack(-side => 'left');
     $f->Button(-text => 'Cancel',
 	       -command => sub { $ok = -1 })->pack(-side => 'left');
+    $t->OnDestroy(sub { $ok = -1 });
     $f->waitVariable(\$ok);
-    $t->destroy;
+    $t->destroy if Tk::Exists($t);
     if ($ok == 1) {
 	$curr_dir;
     } else {
