@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.1 1997/02/14 11:06:34 eserte Exp $
+# $Id: Getopt.pm,v 1.2 1997/02/14 12:29:23 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright © 1997 Slaven Rezic. All rights reserved.
@@ -55,6 +55,21 @@ sub process_options {
     GetOptions(%getopt);
 }
 
+sub usage {
+    my $self = shift;
+    my $usage = "Usage: $0 [options]\n";
+    foreach (@{$self->{'opttable'}}) {
+	if (ref $_ eq 'ARRAY') {
+	    $usage .= "-" . $_->[3]{'short'} . ", " if $_->[3]{'short'};
+	    $usage .= "--" . $_->[0] . "\t";
+	    $usage .= $_->[3]{'help'};
+	    $usage .= " (default: " . $_->[2] . ") " if $_->[2];
+	    $usage .= "\n";
+	}
+    }
+    $usage;
+}
+
 sub get_loadoption {
     my($self, $option, $default) = @_;
     if (exists $self->{'loadoptions'}->{$option}) {
@@ -65,12 +80,27 @@ sub get_loadoption {
 }
 
 sub do_options {
-    my($self, $new, $old) = @_;
+    my($self, $undo) = @_;
+    my $options = $self->{'options'};
     foreach (@{$self->{'opttable'}}) {
-	if (ref $_ eq 'ARRAY' && exists $_->[3]{'sub'}) {
-	    next if (defined $new && defined $old
-		     && $new->{$_->[0]} eq $old->{$_->[0]}); # nothing changed
-	    &{$_->[3]{'sub'}};
+	if (ref $_ eq 'ARRAY') {
+	    my $opt = $_->[0];
+	    if ($_->[3]{'strict'}) {
+		if (!grep(/^$options->{$opt}$/, @{$_->[3]{'choices'}})) {
+		    if (defined $undo) {
+			warn "Not allowed: $options->{$opt} for $opt. Using old value $undo->{$opt}";
+			$options->{$opt} = $undo->{$opt};
+		    } else {
+			die "Not allowed: $options->{$opt} for $opt";
+		    }
+		}
+	    }
+	    if (exists $_->[3]{'sub'}) {
+		# nothing changed:
+		next if (defined $undo
+			 && $options->{$opt} eq $undo->{$opt});
+		&{$_->[3]{'sub'}};
+	    }
 	}
     }
 }
@@ -209,8 +239,7 @@ sub options_editor {
 	       }
 	      )->pack(-side => 'left');
     $f->Button(-text => $string->{'ok'},
-	       -command => sub { $self->do_options($self->{'options'},
-						   \%undo_options);
+	       -command => sub { $self->do_options(\%undo_options);
 				 $optedit->destroy; }
 	      )->pack(-side => 'left');
     $f->Button(-text => $string->{'cancel'},
