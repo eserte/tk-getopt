@@ -1,9 +1,13 @@
 Revision history for Perl extension Tk::Getopt.
 
+0.37  Sat Aug  7 01:29:23 CEST 1999
+	- allow array and hashes in command line (but not yet in the
+	  gui)
+
 0.36  Wed Jun  9 23:55:51 CEST 1999
 	- some bug fixes, e.g. regarding Tk::Tiler
 
-0.35 Thu Jul  2 23:30:12 CEST 1998
+0.35  Thu Jul  2 23:30:12 CEST 1998
 	- buttons are placed with Tk::Tiler
 	- some bug fixes
 
