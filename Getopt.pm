@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.37 2000/11/16 23:58:11 eserte Exp $
+# $Id: Getopt.pm,v 1.38 2000/12/12 23:38:56 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998,1999,2000 Slaven Rezic. All rights reserved.
@@ -175,7 +175,14 @@ sub set_defaults {
     my $opt;
     foreach $opt ($self->_opt_array) {
 	if (defined $opt->[DEFVAL]) {
-	    $ {$self->_varref($opt)} = $opt->[DEFVAL];
+	    my $ref = ref $self->_varref($opt);
+	    if      ($ref eq 'ARRAY') {
+		@ {$self->_varref($opt)} = $opt->[DEFVAL];
+	    } elsif ($ref eq 'HASH') {
+		% {$self->_varref($opt)} = $opt->[DEFVAL];
+	    } else {
+		$ {$self->_varref($opt)} = $opt->[DEFVAL];
+	    }
 	}
     }
 }
@@ -808,7 +815,14 @@ sub option_editor {
     my $opt;
     foreach $opt ($self->_opt_array) {
 	next if $opt->[OPTEXTRA]{'nogui'};
-	$undo_options{$opt->[OPTNAME]} = $ {$self->_varref($opt)};
+	my $ref = ref $self->_varref($opt);
+	if      ($ref eq 'ARRAY') {
+	    @{ $undo_options{$opt->[OPTNAME]} } = @ {$self->_varref($opt)};
+	} elsif ($ref eq 'HASH') {
+	    %{ $undo_options{$opt->[OPTNAME]} } = % {$self->_varref($opt)};
+	} else {
+	    $undo_options{$opt->[OPTNAME]}      = $ {$self->_varref($opt)};
+	}
     }
 
     require Tk;
