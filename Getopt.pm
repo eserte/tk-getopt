@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.34 2000/09/02 00:08:35 eserte Exp $
+# $Id: Getopt.pm,v 1.35 2000/09/10 21:29:09 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998,1999,2000 Slaven Rezic. All rights reserved.
@@ -23,7 +23,7 @@ use constant OPTTYPE  => 1;
 use constant DEFVAL   => 2;
 use constant OPTEXTRA => 3;
 
-$VERSION = '0.41';
+$VERSION = '0.42';
 
 $DEBUG = 0;
 $x11_pass_through = 0;
@@ -932,7 +932,7 @@ sub option_editor {
 	}
 	my $wait_var = 1;
 	$opt_editor->OnDestroy(sub { undef $wait_var });
-	$opt_editor->waitVisibility;
+	$opt_editor->waitVisibility unless $opt_editor->ismapped;
 	$opt_editor->grab;
 	$opt_editor->waitVariable(\$wait_var);
     }
