@@ -41,3 +41,18 @@ WriteMakefile
      'VERSION_FROM' => 'Getopt.pm', # finds $VERSION
      # no PREREQ, because everything is in fact optional...
     );
+
+sub MY::postamble {
+    my $postamble = "";
+
+    if (defined $ENV{USER} && $ENV{USER} eq 'eserte') {
+	$postamble .= <<'EOF';
+
+.include "../../perl.release.mk"
+.include "../../perl.cvs.mk"
+
+EOF
+    }
+
+    $postamble;
+}
