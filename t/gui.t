@@ -98,7 +98,9 @@ $loaded = 1;
    ['lang', '=s', undef,
     {'choices' => ['en', 'de', 'hr'], 'strict' => 1,
      'label' => 'Language'}],
-   ['stderr-extern', '!', 0],
+   ['stderr-extern', '!', 0,
+    'callback-interactive' => sub { warn "Only called from GUI!" },
+   ],
 
    'extern',
    ['imageviewer', '=s', 'xv %s',
