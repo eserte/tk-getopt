@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.47 2003/06/29 20:09:19 eserte Exp $
+# $Id: Getopt.pm,v 1.48 2003/09/16 11:57:19 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998,1999,2000,2003 Slaven Rezic. All rights reserved.
@@ -45,6 +45,9 @@ sub new {
 	    if (ref $_ eq 'ARRAY' and
 		defined $_->[OPTEXTRA] and
 		ref $_->[OPTEXTRA] ne 'HASH') {
+		if ((@$_ - OPTEXTRA) % 2 != 0) {
+		    warn "Odd number of elements in definition for " . $_->[OPTNAME];
+		}
 		my %h = splice @$_, OPTEXTRA;
 		$_->[OPTEXTRA] = \%h;
 	    }
