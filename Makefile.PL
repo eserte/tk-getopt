@@ -35,9 +35,9 @@ EOF
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
-WriteMakefile(
-    'NAME'	=> 'Tk::Getopt',
-    'VERSION_FROM' => 'Getopt.pm', # finds $VERSION
-    'dist'      => {'COMPRESS'=>'gzip -9f', 'SUFFIX' => '.gz',
-		    'POSTOP'=>'-$(CHMOD) 644 $(DISTVNAME).tar$(SUFFIX)'},
-);
+WriteMakefile
+    (
+     'NAME'	=> 'Tk::Getopt',
+     'VERSION_FROM' => 'Getopt.pm', # finds $VERSION
+     # no PREREQ, because everything is in fact optional...
+    );
