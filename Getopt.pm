@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.26 1998/02/11 01:22:58 eserte Exp $
+# $Id: Getopt.pm,v 1.27 1998/07/02 21:29:48 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997, 1998 Slaven Rezic. All rights reserved.
@@ -17,7 +17,7 @@ require 5.003;
 use strict;
 use vars qw($loadoptions $VERSION $x11_pass_through);
 
-$VERSION = '0.34';
+$VERSION = '0.35';
 
 $x11_pass_through = 0;
 
@@ -128,7 +128,7 @@ sub _opt_array {
     my $self = shift;
     my @res;
     foreach (@{$self->{'opttable'}}) {
-	push(@res, $_) if ref $_ eq 'ARRAY';
+	push @res, $_ if ref $_ eq 'ARRAY';
     }
     @res;
 }
@@ -202,7 +202,7 @@ sub save_options {
 	    my $opt;
 	    foreach $opt ($self->_opt_array) {
 		$saveoptions{$opt->[0]} = $ {$self->_varref($opt)}
-		  if !$opt->[3]{'nosave'};
+		  if !$opt->[3]{'nosave'} && ref $self->_varref($opt) eq 'SCALAR';
 	    }
 	    if (Data::Dumper->can('Dumpxs')) {
 		# use faster version of Dump
@@ -263,7 +263,8 @@ sub get_options {
 # type (e.g. '!' or '=s').
 sub _getopt_long_string {
     my($option, $type) = @_;
-    $option . (length($option) == 1 && ($type eq '' || $type eq '!')
+    $option . (length($option) == 1 && 
+	       (!defined $type || $type eq '' || $type eq '!')
 	       ? '' : $type);
 }
 
@@ -405,6 +406,7 @@ sub _filedialog_widget {
 	$e = $topframe->Entry(-textvariable => $self->_varref($opt));
     }
     $e->pack(-side => 'left');
+    # XXX optionally use Tk::FileEntry
     my $b = $topframe->Button
       (-text => 'Browse...',
        -command => sub {
@@ -510,12 +512,15 @@ sub _create_page {
 		       })->grid(-row => $row, -column => 2, -sticky => 'w');
 	}
     }
+    $current_page->grid('columnconfigure', 3, -weight => 1);
+    $current_page->grid('rowconfigure', ++$row, -weight => 1);
 }
 
 sub _do_undo {
     my($self, $undo_options) = @_;
     my $opt;
     foreach $opt ($self->_opt_array) {
+	next if $opt->[3]{'nogui'};
 	if (exists $undo_options->{$opt->[0]}) {
 	    my $swap = $ {$self->_varref($opt)};
 	    $ {$self->_varref($opt)} = $undo_options->{$opt->[0]};
@@ -546,6 +551,7 @@ sub option_editor {
     my %undo_options;
     my $opt;
     foreach $opt ($self->_opt_array) {
+	next if $opt->[3]{'nogui'};
 	$undo_options{$opt->[0]} = $ {$self->_varref($opt)};
     }
 
@@ -610,7 +616,7 @@ sub option_editor {
 				   -createcmd =>
 				   sub {
 				       $self->_create_page
-					 (undef, # XXX remove in 400.203
+					 ($_[0],
 					  $opt_notebook, $c,
 					  $optlist, $balloon);
                                    });
@@ -625,10 +631,15 @@ sub option_editor {
 	$statusbar->pack(-fill => 'x', -anchor => 'w');
     }
 
-    my $f  = $opt_editor->Frame->pack(-fill => 'x', -expand => 1);
+    require Tk::Tiler;
+    my $f  = $opt_editor->Tiler->pack(-fill => 'x');
+#    my $f  = $opt_editor->Frame->pack(-fill => 'x', -expand => 1);
+#$f->optionAdd("*" . substr($f->PathName, 1) . ".ok.text", "Ist ok...", 'widgetDefault');
+    my @tiler_b;
     my $ok_button
       = $f->Button(-text => $string->{'ok'},
 		   -underline => 0,
+#		   Name => 'ok',
 		   -command => sub {
 		       $self->process_options(\%undo_options, 1);
 		       if (!$dont_use_notebook) {
@@ -636,13 +647,15 @@ sub option_editor {
 		       }
 		       $opt_editor->destroy;
 		   }
-		  )->grid(-row => 0, -column => 0, -sticky => 'ew');
+		  );#->grid(-row => 0, -column => 0, -sticky => 'ew');
+    push @tiler_b, $ok_button;
     my $apply_button
       = $f->Button(-text => $string->{'apply'},
 		   -command => sub {
 		       $self->process_options(\%undo_options, 1);
 		   }
-		  )->grid(-row => 0, -column => 1, -sticky => 'ew');
+		  );#->grid(-row => 0, -column => 1, -sticky => 'ew');
+    push @tiler_b, $apply_button;
     my $cancel_button
       = $f->Button(-text => $string->{'cancel'},
 		   -command => sub {
@@ -652,21 +665,25 @@ sub option_editor {
 		       }
 		       $opt_editor->destroy;
 		   }
-		  )->grid(-row => 0, -column => 2, -sticky => 'ew');
+		  );#->grid(-row => 0, -column => 2, -sticky => 'ew');
+    push @tiler_b, $cancel_button;
     my $grid_col = 0;
-    $f->Button(-text => $string->{'undo'},
+    my $undo_button = $f->Button(-text => $string->{'undo'},
 	       -command => sub {
 		   $self->_do_undo(\%undo_options);
 	       }
-	      )->grid(-row => 1, -column => $grid_col++, -sticky => 'ew');
+	      );#->grid(-row => 1, -column => $grid_col++, -sticky => 'ew');
+    push @tiler_b, $undo_button;
     if ($self->{'filename'}) {
-	$f->Button(-text => $string->{'lastsaved'},
+	my $lastsaved_button = $f->Button(-text => $string->{'lastsaved'},
 		   -command => sub {
 			$top->Busy;
 			$self->load_options;
 			$top->Unbusy;
 		    }
-		  )->grid(-row => 1, -column => $grid_col++, -sticky => 'ew');
+		  );#->grid(-row => 1, -column => $grid_col++, -sticky => 'ew');
+	push @tiler_b, $lastsaved_button;
+
 	if (!$nosave) {
 	    my $sb;
 	    $sb = $f->Button(-text => $string->{'save'},
@@ -678,15 +695,21 @@ sub option_editor {
 				 }
 				 $top->Unbusy;
 			     }
-			    )->grid(-row => 1, -column => $grid_col++,
-				    -sticky => 'ew');
+			    );#->grid(-row => 1, -column => $grid_col++,
+	    #-sticky => 'ew');
+	    push @tiler_b, $sb;
 	}
     }
-    $f->Button(-text => $string->{'defaults'},
+    my $def_button = $f->Button(-text => $string->{'defaults'},
 	       -command => sub {
 		   $self->set_defaults;
 	       }
-	      )->grid(-row => 1, -column => $grid_col++, -sticky => 'ew');
+	      );#->grid(-row => 1, -column => $grid_col++, -sticky => 'ew');
+    push @tiler_b, $def_button;
+    $f->configure(-columns => 3,
+		  -rows => int(@tiler_b/3)+(@tiler_b%3 != 0 ? 1 : 0)
+		 );
+    $f->Manage(@tiler_b);
 
     &$callback($self, $opt_editor) if $callback;
 
@@ -911,7 +934,7 @@ variables named I<$opt_XXX>.
 
 =item -filename
 
-This argument is optional and specified the filename for loading and saving
+This argument is optional and specifies the filename for loading and saving
 options.
 
 =item -nosafe
@@ -1104,7 +1127,7 @@ perl5.004 (perl5.003 near 5.004 may work too, e.g perl5.003_26)
 
 =item *
 
-Tk400.202 (better: Tk400.204) (only if you want the GUI)
+Tk400.202 (better: Tk800.007) (only if you want the GUI)
 
 =item *
 
