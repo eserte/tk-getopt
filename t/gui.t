@@ -152,7 +152,11 @@ $timer = $top->after(60*1000, sub {
 			 $t2 = $top->Toplevel(-popover => 'cursor');
 			 $t2->Label(-text => "Self-destruction in 5s")->pack;
 			 $t2->Popup;
-			 $top->after(5*1000, sub { $w->destroy })
+			 $top->after(5*1000, sub {
+					 foreach ($top->children) {
+					     $_->destroy;
+					 }
+				     })
 		     });
 
 $w = $opt->option_editor($top,
@@ -162,6 +166,7 @@ $w = $opt->option_editor($top,
 $timer->cancel;
 
 $w = $opt->option_editor($top);
+$w->resizable(0,0);
 $w->OnDestroy(sub {$top->destroy});
 $top->after(5*1000, sub { $w->destroy });
 
