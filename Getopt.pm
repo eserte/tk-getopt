@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.16 1997/11/11 23:08:40 eserte Exp $
+# $Id: Getopt.pm,v 1.17 1997/11/11 23:15:11 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright © 1997 Slaven Rezic. All rights reserved.
@@ -755,6 +755,11 @@ An array with the beginning and end of a range for an integer or float value.
 
 Must be used with B<choices> or B<range>. When set to true, options have to
 match either the choices or the range.
+
+=item subtype
+
+Current the only permitted subtype is I<file> to be used with string
+options. The GUI interface will pop up a file dialog for this option.
 
 =item var
 
