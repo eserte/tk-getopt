@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.19 1997/11/16 21:32:10 eserte Exp $
+# $Id: Getopt.pm,v 1.20 1997/11/18 19:33:55 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright © 1997 Slaven Rezic. All rights reserved.
@@ -28,7 +28,7 @@ sub new {
     if (exists $a{'-opttable'}) {
 	$self->{'opttable'} = delete $a{'-opttable'};
 	foreach (@{$self->{'opttable'}}) {
-	    if ($_->[0] =~ /\|/) { # handle aliases
+	    if (ref $_ eq 'ARRAY' && $_->[0] =~ /\|/) { # handle aliases
 		my($opt, @aliases) = split(/\|/, $_->[0]);
 		$_->[0] = $opt;
 		push(@{$_->[3]{'aliases'}}, @aliases);
@@ -272,9 +272,9 @@ sub process_options {
 	    }
 	}
 	if ($_->[3]{'strict'}) {
-	    # check for valid values
+	    # check for valid values (valid are: choices and default value)
 	    my $v = $ {$self->_varref($_)};
-	    if (!grep(/^$v$/, @{$_->[3]{'choices'}})) {
+	    if (!grep(/^$v$/, (@{$_->[3]{'choices'}}, $_->[2]))) {
 		if (defined $former) {
 		    warn "Not allowed: " . $ {$self->_varref($_)}
 		    . " for $opt. Using old value $former->{$opt}";
