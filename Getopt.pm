@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.8 1997/02/24 21:40:09 eserte Exp $
+# $Id: Getopt.pm,v 1.9 1997/02/27 01:02:58 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright © 1997 Slaven Rezic. All rights reserved.
@@ -16,7 +16,7 @@ package Tk::Options;
 use strict;
 use vars qw($loadoptions $VERSION);
 
-$VERSION = '0.12';
+$VERSION = '0.20';
 
 sub new {
     my($pkg, %a) = @_;
@@ -24,8 +24,9 @@ sub new {
 
     if (exists $a{-opttable}) {
 	$self->{'opttable'} = $a{'-opttable'};
-	die "No options hash ref" if !exists $a{'-options'}; # XXX ???
-	$self->{'options'} = $a{'-options'};
+	if (exists $a{'-options'}) {
+	    $self->{'options'} = $a{'-options'};
+	}
     } elsif (exists $a{-getopt}) {
 	# build opttable
 	my %getopt = %{$a{-getopt}};
@@ -42,6 +43,7 @@ sub new {
 	die "No opttable array ref or getopt hash ref";
     }
 
+    $self->{'caller'} = (caller)[0];
     $self->{'filename'} = $a{'-filename'};
     $self->{'toplevel'} = $a{'-toplevel'} || 'Toplevel';
     bless $self, $pkg;
@@ -63,10 +65,9 @@ sub _varref {
     } elsif ($self->{'options'}) {
 	\$self->{'options'}{$opt->[0]};
     } else {
-	my $pkg = (caller)[0];
 	my $v;
 	($v = $opt->[0]) =~ s/\W/_/g;
-	eval q{\$} . $pkg . q{::opt_} . $v;
+	eval q{\$} . $self->{'caller'} . q{::opt_} . $v;
     }
 }
 
@@ -478,6 +479,10 @@ The end of a range for an integer or float value.
 Must be used with I<choices> or I<from/to>. When set to true, options have to
 match either the choices or the range between I<from> and I<to>.
 
+=item var
+
+Use variable instead of $options->{optname} to store the value.
+
 =back
 
 =item Example:
@@ -547,9 +552,9 @@ default options file.
 
 =head1 BUGS
 
-B<load_options> should be done inside of a B<Safe> compartment.
+Not all of Getopt::Long is supported (using arrays or hashs for options).
 
-My English is bad.
+This POD is out of date.
 
 =head1 AUTHOR
 
