@@ -1,5 +1,8 @@
 Revision history for Perl extension Tk::Getopt.
 
+0.38  Tue Aug 31 12:01:35 CEST 1999
+	- bugfix in filedialog widget
+
 0.37  Sat Aug  7 01:29:23 CEST 1999
 	- allow array and hashes in command line (but not yet in the
 	  gui)
