@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.30 1999/08/06 23:32:02 eserte Exp $
+# $Id: Getopt.pm,v 1.31 1999/08/31 10:03:20 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998,1999 Slaven Rezic. All rights reserved.
@@ -19,7 +19,7 @@ use vars qw($loadoptions $VERSION $x11_pass_through
 	    $CHECKMARK_OFF $CHECKMARK_ON $DEBUG
 	   );
 
-$VERSION = '0.37';
+$VERSION = '0.38';
 
 $DEBUG = 0;
 $x11_pass_through = 0;
@@ -497,7 +497,11 @@ sub _filedialog_widget {
 		   $file = $filedialog->Show(-directory => $dir);
 	       }
 	   } else {
-	       $file = $filedialog->Show;
+	       if ($fd eq 'getOpenFile') {
+		   $file = $topframe->getOpenFile(-title => 'Select file');
+	       } else {
+		   $file = $filedialog->Show;
+	       }
 	   }
 	   if ($file) {
 	       $ {$self->_varref($opt)} = $file;
