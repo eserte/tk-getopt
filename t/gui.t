@@ -119,6 +119,8 @@ $loaded = 1;
    'adr2tex',
    ['adr2tex-cols', '=i', 8, {'range' => [2, 16],
 			      'help' => 'Number of columns'}],
+   ['adr2tex-rows', '=i', undef, {'help' => 'Number of rows'}],
+   ['adr2tex-width', '=f', undef, {'help' => 'page width in in'}],
    ['adr2tex-font', '=s', 'sf', 
     {'choices' => ['cmr5', 'cmr10', 'cmr17', 'cmss10', 'cmssi10',
 		   'cmtt10 scaled 500', 'cmtt10']}],
@@ -179,12 +181,13 @@ $w = $opt->option_editor($top,
 			 '-wait' => 1);
 $timer->cancel;
 
-$w = $opt->option_editor($top);
+$w = $opt->option_editor($top,
+                         -buttons => [qw/ok apply cancel defaults/]);
 $w->resizable(0,0);
 $w->OnDestroy(sub {$top->destroy});
 
 $timerlen = ($batch_mode ? 1000 : 5*1000);
-$top->after($batch_mode, sub { $w->destroy });
+$top->after($timerlen, sub { $w->destroy });
 
 
 MainLoop;
