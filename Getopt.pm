@@ -1,15 +1,15 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.12 1997/08/26 08:01:22 eserte Exp $
+# $Id: Getopt.pm,v 1.13 1997/10/29 15:15:51 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright © 1997 Slaven Rezic. All rights reserved.
 # This package is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
-# Mail: <URL:mailto:eserte@cs.tu-berlin.de>
-# WWW:  <URL:http://www.cs.tu-berlin.de/~eserte/>
+# Mail: eserte@cs.tu-berlin.de
+# WWW:  http://user.cs.tu-berlin.de/~eserte/
 #
 
 package Tk::Getopt;
@@ -17,7 +17,7 @@ require 5.003;
 use strict;
 use vars qw($loadoptions $VERSION);
 
-$VERSION = '0.31';
+$VERSION = '0.32';
 
 sub new ($%) {
     my($pkg, %a) = @_;
@@ -332,6 +332,29 @@ sub _string_widget ($$$) {
     }
 }
 
+sub _fileselect_widget ($$$) {
+    my($self, $frame, $opt) = @_;
+    if (exists $opt->[3]{'choices'}) {
+	$self->_list_widget($frame, $opt);
+    } else {
+	my $topframe = $frame->Frame;
+	my $e = $topframe->Entry(-textvariable => $self->_varref($opt));
+	$e->pack(-side => 'left');
+	my $b = $topframe->Button
+	  (-text => 'Browse...',
+	   -command => sub {
+	       require Tk::FileSelect;
+	       my $filedialog = $topframe->FileSelect;
+	       my $file = $filedialog->Show;
+	       if ($file) {
+		   $ {$self->_varref($opt)} = $file;
+	       }
+	   });
+	$b->pack(-side => 'left');
+	$topframe;
+    }
+}
+
 # Creates one page of the Notebook widget
 # Arguments:
 #   $optnote: Notebook widget
@@ -368,7 +391,12 @@ sub _create_page ($$$$$$) {
 	} elsif ($opt->[1] =~ /f/) {
 	    $w = $self->_float_widget($f, $opt);
 	} elsif ($opt->[1] =~ /s/) {
-	    $w = $self->_string_widget($f, $opt);
+	    # XXX weitere Möglichkeiten: exefile, file mit pattern... etc.
+	    if ($opt->[3]{'subtype'} eq 'file') {
+		$w = $self->_fileselect_widget($f, $opt);
+	    } else {
+		$w = $self->_string_widget($f, $opt);
+	    }
 	} else {
 	    warn "Can't generate option editor entry for $opt->[0]";
 	}
