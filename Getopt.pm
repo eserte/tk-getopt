@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.11 1997/04/01 14:59:29 eserte Exp $
+# $Id: Getopt.pm,v 1.12 1997/08/26 08:01:22 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright © 1997 Slaven Rezic. All rights reserved.
@@ -17,7 +17,7 @@ require 5.003;
 use strict;
 use vars qw($loadoptions $VERSION);
 
-$VERSION = '0.30';
+$VERSION = '0.31';
 
 sub new ($%) {
     my($pkg, %a) = @_;
@@ -253,7 +253,8 @@ sub process_options ($$;$) {
 	if (exists $_->[3]{'callback'}) {
 	    # execute callback if value changed
 	    if (!(defined $former
-		  && $ {$self->_varref($_)} eq $former->{$opt})) {
+		  && (!exists $former->{$opt} 
+		      || $ {$self->_varref($_)} eq $former->{$opt}))) {
 		&{$_->[3]{'callback'}};
 	    }
 	}
@@ -266,7 +267,8 @@ sub process_options ($$;$) {
 		    . " for $opt. Using old value $former->{$opt}";
 		    $ {$self->_varref($_)} = $former->{$opt};
 		} else {
-		    die "Not allowed: " . $ {$self->_varref($_)} . " for $opt";
+		    die "Not allowed: " 
+		      . $ {$self->_varref($_)} . " for $opt";
 		}
 	    }
 	}
