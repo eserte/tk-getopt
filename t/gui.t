@@ -44,14 +44,20 @@ $loaded = 1;
 	     }
 	 }
      },
-     'help' => 'Background color'}],
+     'help' => 'Background color',
+     'length' => 7,
+     'maxsize' => 7,
+    }],
    ['fg', '=s', undef,
-    {'callback' => 
+    {'callback' =>
      sub {
 	 $top->optionAdd("*foreground" => $options->{'fg'}, 'userDefault')
 	   if $options->{'fg'};
      },
-     'help' => 'Foreground color'}],
+     'help' => 'Foreground color',
+     'length' => 7,
+     'maxsize' => 7,
+    }],
    ['font', '=s', undef,
     {'callback' =>
      sub {
@@ -99,6 +105,7 @@ $loaded = 1;
     {'choices' => ['xli %s', 'xloadimage %s', '#NETSCAPE file:%s']}],
    ['internimageviewer', '!', 1,
     {'help' => 'Use intern image viewer if possible'}],
+   ['', '', '-'],
    ['browsercmd', '=s', '#NETSCAPE %s',
     {'choices' => ['#WEB %s', 'mosaic %s', '#XTERM lynx %s']}],
    ['mailcmd', '=s', '#XTERM mail %s',
