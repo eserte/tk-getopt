@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.7 1997/02/24 17:20:05 eserte Exp $
+# $Id: Getopt.pm,v 1.8 1997/02/24 21:40:09 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright © 1997 Slaven Rezic. All rights reserved.
@@ -24,20 +24,20 @@ sub new {
 
     if (exists $a{-opttable}) {
 	$self->{'opttable'} = $a{'-opttable'};
-	die "No options hash ref" if !exists $a{'-options'};
+	die "No options hash ref" if !exists $a{'-options'}; # XXX ???
 	$self->{'options'} = $a{'-options'};
-#    } elsif (exists $a{-getopt}) {
-#	# build opttable
-#	my %getopt = %{$a{-getopt}};
-#	my $optdesc;
-#	foreach $optdesc (keys %getopt) {
-#	    if ($optdesc !~ /^(\w+[-\w|]*)?(!|[=:][infse][@%]?)?$/) {
-#		warn "Error in option spec: \"", $optdesc, "\"\n";
-#		next;
-#	    }
-#	    push(@{$self->{'opttable'}}, [$1, $2, undef]);
-#	    $getopt{$optdesc} = $self->{'options'}->{$1};
-#	}
+    } elsif (exists $a{-getopt}) {
+	# build opttable
+	my %getopt = %{$a{-getopt}};
+	my $optdesc;
+	foreach $optdesc (keys %getopt) {
+	    if ($optdesc !~ /^(\w+[-\w|]*)?(!|[=:][infse][@%]?)?$/) {
+		warn "Error in option spec: \"", $optdesc, "\"\n";
+		next;
+	    }
+	    push(@{$self->{'opttable'}}, [$1, $2, undef,
+					  {'var' => $getopt{$optdesc}}]);
+	}
     } else {
 	die "No opttable array ref or getopt hash ref";
     }
@@ -47,12 +47,36 @@ sub new {
     bless $self, $pkg;
 }
 
+sub _opt_array {
+    my $self = shift;
+    my @res;
+    foreach (@{$self->{'opttable'}}) {
+	push(@res, $_) if ref $_ eq 'ARRAY';
+    }
+    @res;
+}
+
+sub _varref {
+    my($self, $opt) = @_;
+    if($opt->[3]{'var'}) {
+	$opt->[3]{'var'};
+    } elsif ($self->{'options'}) {
+	\$self->{'options'}{$opt->[0]};
+    } else {
+	my $pkg = (caller)[0];
+	my $v;
+	($v = $opt->[0]) =~ s/\W/_/g;
+	eval q{\$} . $pkg . q{::opt_} . $v;
+    }
+}
+
 sub set_defaults {
     my $self = shift;
     my $opt;
-    foreach $opt (@{$self->{'opttable'}}) {
-	if (ref $opt eq 'ARRAY' && defined $opt->[2]) {
-	    $self->{'options'}->{$opt->[0]} = $opt->[2];
+    foreach $opt ($self->_opt_array) {
+	if (defined $opt->[2]) {
+#	    $self->{'options'}->{$opt->[0]} = $opt->[2];
+	    $ {$self->_varref($opt)} = $opt->[2];
 	}
     }
 }
@@ -69,9 +93,10 @@ sub load_options {
 	undef;
     } else {
 	my $opt;
-	foreach $opt (@{$self->{'opttable'}}) {
-	    if (ref $opt eq 'ARRAY' && exists $loadoptions->{$opt->[0]}) {
-		$self->{'options'}->{$opt->[0]} = $loadoptions->{$opt->[0]};
+	foreach $opt ($self->_opt_array) {
+	    if (exists $loadoptions->{$opt->[0]}) {
+#		$self->{'options'}->{$opt->[0]} = $loadoptions->{$opt->[0]};
+		$ {$self->_varref($opt)} = $loadoptions->{$opt->[0]};
 	    }
 	}
 	1;
@@ -88,8 +113,14 @@ sub save_options {
 	undef;
     } else {
 	if (open(OPT, ">$filename")) {
+	    my %saveoptions;
+	    foreach my $opt ($self->_opt_array) {
+#		$saveoptions{$opt->[0]} = $self->{'options'}->{$opt->[0]}
+		$saveoptions{$opt->[0]} = $ {$self->_varref($opt)}
+		  if !$opt->[3]{'nosave'};
+	    }
 	    print OPT
-	      Data::Dumper->Dump([$self->{'options'}], ['loadoptions']);
+	      Data::Dumper->Dump([\%saveoptions], ['loadoptions']);
 	    close OPT;
 	    warn "Options written to $filename";
 	    1;
@@ -104,14 +135,14 @@ sub process_options {
     my $self = shift;
     my %getopt;
     my $opt;
-    foreach $opt (@{$self->{'opttable'}}) {
-	if (ref $opt eq 'ARRAY') {
-	    $getopt{_getopt_long_string($opt->[0], $opt->[1])} =
-	      \$self->{'options'}->{$opt->[0]};
-	    foreach (@{$opt->[3]{'alias'}}) {
-		$getopt{_getopt_long_string($_, $opt->[1])} =
-		  \$self->{'options'}->{$opt->[0]};
-	    }
+    foreach $opt ($self->_opt_array) {
+	$getopt{_getopt_long_string($opt->[0], $opt->[1])} =
+#	  \$self->{'options'}->{$opt->[0]};
+	  $self->_varref($opt);
+	foreach (@{$opt->[3]{'alias'}}) {
+	    $getopt{_getopt_long_string($_, $opt->[1])} =
+#	      \$self->{'options'}->{$opt->[0]};
+	      $self->_varref($opt);
 	}
     }
     require Getopt::Long;
@@ -133,20 +164,18 @@ sub usage {
     my $self = shift;
     my $usage = "Usage: $0 [options]\n";
     my $opt;
-    foreach $opt (@{$self->{'opttable'}}) {
-	if (ref $opt eq 'ARRAY') {
-	    # The following prints all options as a comma-seperated list
-	    # with one or two dashes, depending on the length of the option.
-	    # Options are sorted by length.
-	    $usage .= join(', ', 
-			   sort { length $a <=> length $b }
-			   map { _getopt_long_dash($_) }
-			   map { ($opt->[1] eq '!' ? "[no]" : "") . $_ }
-			   ($opt->[0], @{$opt->[3]{'alias'}}));
-	    $usage .= "\t" . $opt->[3]{'help'};
-	    $usage .= " (default: " . $opt->[2] . ") " if $opt->[2];
-	    $usage .= "\n";
-	}
+    foreach $opt ($self->_opt_array) {
+	# The following prints all options as a comma-seperated list
+	# with one or two dashes, depending on the length of the option.
+	# Options are sorted by length.
+	$usage .= join(', ', 
+		       sort { length $a <=> length $b }
+		       map { _getopt_long_dash($_) }
+		       map { ($opt->[1] eq '!' ? "[no]" : "") . $_ }
+		       ($opt->[0], @{$opt->[3]{'alias'}}));
+	$usage .= "\t" . $opt->[3]{'help'};
+	$usage .= " (default: " . $opt->[2] . ") " if $opt->[2];
+	$usage .= "\n";
     }
     $usage;
 }
@@ -154,26 +183,28 @@ sub usage {
 sub do_options {
     my($self, $undo) = @_;
     my $options = $self->{'options'};
-    foreach (@{$self->{'opttable'}}) {
-	if (ref $_ eq 'ARRAY') {
-	    my $opt = $_->[0];
-	    if ($_->[3]{'strict'}) {
-		if (!grep(/^$options->{$opt}$/, @{$_->[3]{'choices'}})) {
-		    if (defined $undo) {
-			warn "Not allowed: $options->{$opt} for $opt. Using old value $undo->{$opt}";
-			$options->{$opt} = $undo->{$opt};
-		    } else {
-			die "Not allowed: $options->{$opt} for $opt";
-		    }
+    foreach ($self->_opt_array) {
+	my $opt = $_->[0];
+	if ($_->[3]{'strict'}) {
+	    my $v = $ {$self->_varref($_)};
+	    if (!grep(/^$v$/, @{$_->[3]{'choices'}})) {
+#	    if (!grep(/^$options->{$opt}$/, @{$_->[3]{'choices'}})) {
+		if (defined $undo) {
+		    warn "Not allowed: $options->{$opt} for $opt. Using old value $undo->{$opt}"; # XXX varref
+#		    $options->{$opt} = $undo->{$opt};
+		    $ {$self->_varref($_)} = $undo->{$opt};
+		} else {
+		    die "Not allowed: $options->{$opt} for $opt"; # XXX varref
 		}
 	    }
-	    if (exists $_->[3]{'sub'}) {
-		# nothing changed:
-		next if (defined $undo
-			 && $options->{$opt} eq $undo->{$opt});
-		# callback:
-		&{$_->[3]{'sub'}};
-	    }
+	}
+	if (exists $_->[3]{'sub'}) {
+	    # nothing changed:
+	    next if (defined $undo
+#		     && $options->{$opt} eq $undo->{$opt});
+		     && $ {$self->_varref($_)} eq $undo->{$opt});
+	    # callback:
+	    &{$_->[3]{'sub'}};
 	}
     }
 }
@@ -199,7 +230,8 @@ sub _create_page {
 					 -sticky => 'w');
 	if ($opt->[1] eq '!' or $opt->[1] eq '') {
 	    $f->Checkbutton
-	      (-variable => \$self->{'options'}->{$opt->[0]}
+	      (-variable => $self->_varref($opt)
+	       #\$self->{'options'}->{$opt->[0]}
 	      )->grid(-row => $row, -column => 1, -sticky => 'w');
 	} elsif ($opt->[1] =~ /i|f/ 
 		 && exists $opt->[3]{'range'}) {
@@ -209,13 +241,15 @@ sub _create_page {
 	       -to => $opt->[3]{'range'}[1],
 	       -showvalue => 1,
 	       -resolution => ($opt->[1] =~ /f/ ? 0 : 1),
-	       -variable => \$self->{'options'}->{$opt->[0]}
+	       -variable => $self->_varref($opt)
+	       #\$self->{'options'}->{$opt->[0]}
 	      )->grid(-row => $row, -column => 1, -sticky => 'w');
 	} elsif ($opt->[1] =~ /(s|i|f)/) {
 	    if (exists $opt->[3]{'choices'}) {
 		require Tk::BrowseEntry;
 		my $w = $f->BrowseEntry
-		  (-variable => \$self->{'options'}->{$opt->[0]}
+		  (-variable => $self->_varref($opt)
+		   #\$self->{'options'}->{$opt->[0]}
 		  )->grid(-row => $row, -column => 1, -sticky => 'w');
 		my @optlist = @{$opt->[3]{'choices'}};
 		unshift(@optlist, $opt->[2]) if defined $opt->[2];
@@ -225,7 +259,8 @@ sub _create_page {
 		}
 	    } else {
 		$f->Entry
-		  (-textvariable => \$self->{'options'}->{$opt->[0]}
+		  (-textvariable => $self->_varref($opt)
+		   #\$self->{'options'}->{$opt->[0]}
 		  )->grid(-row => $row, -column => 1, -sticky => 'w');
 	    }
 	} else {
@@ -263,7 +298,12 @@ sub options_editor {
 		   'ok' => 'OK',
 		   'cancel' => 'Cancel'};
     }
-    my %undo_options = %{$self->{'options'}};
+#    my %undo_options = %{$self->{'options'}};
+    my %undo_options;
+    foreach my $opt ($self->_opt_array) {
+	$undo_options{$opt->[0]} = $ {$self->_varref($opt)};
+    }
+
     require Tk;
     require Tk::NoteBook;
     my $optedit =
@@ -302,33 +342,39 @@ sub options_editor {
     $f->pack(-anchor => 'w');
     $f->Button(-text => $string->{'undo'},
 	       -command => sub {
-		   foreach (keys %undo_options) {
-		       $self->{'options'}->{$_} = $undo_options{$_};
+#		   foreach (keys %undo_options) {
+		   foreach my $opt ($self->_opt_array) {
+#		       $self->{'options'}->{$_} = $undo_options{$_};
+		       $ {$self->_varref($opt)} = $undo_options{$opt->[0]}
+		         if exists $undo_options{$opt->[0]}; 
 		   }
 	       }
 	      )->pack(-side => 'left');
-    $f->Button(-text => $string->{'lastsaved'},
-	       -command => sub {
-		   $top->Busy;
-		   $self->load_options;
-		   $top->Unbusy;
-	       }
-	      )->pack(-side => 'left');
-    $f->Button(-text => $string->{'save'},
-	       -command => sub {
-		   $top->Busy;
-		   $self->save_options;
-		   $top->Unbusy;
-	       }
-	      )->pack(-side => 'left');
+    if ($self->{'filename'}) {
+	$f->Button(-text => $string->{'lastsaved'},
+		   -command => sub {
+		       $top->Busy;
+		       $self->load_options;
+		       $top->Unbusy;
+		   }
+		  )->pack(-side => 'left');
+	$f->Button(-text => $string->{'save'},
+		   -command => sub {
+		       $top->Busy;
+		       $self->save_options;
+		       $top->Unbusy;
+		   }
+		  )->pack(-side => 'left');
+    }
     $f->Button(-text => $string->{'defaults'},
 	       -command => sub {
-		   my $opt;
-		   foreach $opt (@{$self->{'opttable'}}) {
-		       if (ref $opt eq 'ARRAY' && defined $opt->[2]) {
-			   $self->{'options'}->{$opt->[0]} = $opt->[2];
-		       } 
-		   }
+		   $self->set_defaults;
+#		   my $opt;
+#		   foreach $opt (@{$self->{'opttable'}}) {
+#		       if (ref $opt eq 'ARRAY' && defined $opt->[2]) {
+#			   $self->{'options'}->{$opt->[0]} = $opt->[2];
+#		       } 
+#		   }
 	       }
 	      )->pack(-side => 'left');
     $f->Button(-text => $string->{'ok'},
