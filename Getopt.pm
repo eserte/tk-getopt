@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.6 1997/02/16 04:39:00 eserte Exp $
+# $Id: Getopt.pm,v 1.7 1997/02/24 17:20:05 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright © 1997 Slaven Rezic. All rights reserved.
@@ -13,9 +13,6 @@
 #
 
 package Tk::Options;
-use Tk;
-use Tk::NoteBook;
-use Getopt::Long;
 use strict;
 use vars qw($loadoptions $VERSION);
 
@@ -117,7 +114,8 @@ sub process_options {
 	    }
 	}
     }
-    GetOptions(%getopt);
+    require Getopt::Long;
+    Getopt::Long::GetOptions(%getopt);
 }
 
 sub _getopt_long_string {
@@ -266,6 +264,8 @@ sub options_editor {
 		   'cancel' => 'Cancel'};
     }
     my %undo_options = %{$self->{'options'}};
+    require Tk;
+    require Tk::NoteBook;
     my $optedit =
       eval '$top->' . $self->{'toplevel'} . '(-title => $string->{optedit})';
     my $optnote = $optedit->NoteBook(-ipadx => 6, -ipady => 6);
