@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.23 1998/01/08 12:46:49 eserte Exp $
+# $Id: Getopt.pm,v 1.24 1998/02/09 19:41:46 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997, 1998 Slaven Rezic. All rights reserved.
@@ -87,7 +87,21 @@ sub new {
 	    }
 	    my %a;
 	    if (defined $varref) {
-		$a{'var'} = $varref;
+		if (ref $varref eq 'CODE') {
+		    my $code = $varref;
+		    $a{'callback'} = sub {
+			if ($self->{'options'}{$o}) {
+			    &$code;
+			}
+		    };
+		    $varref = \$self->{'options'}{$o};
+		}
+		if (ref $varref eq 'SCALAR') {
+		    $a{'var'} = $varref;
+		} else {
+		    die "Can't handle variable reference of type " 
+		      . ref $varref;
+		}
 	    }
 	    if (defined @aliases) {
 		$a{'alias'} = \@aliases;
@@ -504,6 +518,7 @@ sub option_editor {
 		   'save'      => 'Save',
 		   'defaults'  => 'Defaults',
 		   'ok'        => 'OK',
+		   'apply'     => 'Apply',
 		   'cancel'    => 'Cancel'};
     }
     # store old values for undo
@@ -589,8 +604,7 @@ sub option_editor {
 	$statusbar->pack(-fill => 'x', -anchor => 'w');
     }
 
-    my $f = $opt_editor->Frame;
-    $f->pack(-anchor => 'w');
+    my $f  = $opt_editor->Frame->pack(-fill => 'x', -expand => 1);
     my $ok_button
       = $f->Button(-text => $string->{'ok'},
 		   -underline => 0,
@@ -601,7 +615,13 @@ sub option_editor {
 		       }
 		       $opt_editor->destroy;
 		   }
-		  )->pack(-side => 'left');
+		  )->grid(-row => 0, -column => 0, -sticky => 'ew');
+    my $apply_button
+      = $f->Button(-text => $string->{'apply'},
+		   -command => sub {
+		       $self->process_options(\%undo_options, 1);
+		   }
+		  )->grid(-row => 0, -column => 1, -sticky => 'ew');
     my $cancel_button
       = $f->Button(-text => $string->{'cancel'},
 		   -command => sub {
@@ -611,20 +631,20 @@ sub option_editor {
 		       }
 		       $opt_editor->destroy;
 		   }
-		  )->pack(-side => 'left');
+		  )->grid(-row => 0, -column => 2, -sticky => 'ew');
     $f->Button(-text => $string->{'undo'},
 	       -command => sub {
 		   $self->_do_undo(\%undo_options);
 	       }
-	      )->pack(-side => 'left');
+	      )->grid(-row => 1, -column => 0, -sticky => 'ew');
     if ($self->{'filename'}) {
 	$f->Button(-text => $string->{'lastsaved'},
 		   -command => sub {
-		       $top->Busy;
-		       $self->load_options;
-		       $top->Unbusy;
-		   }
-		  )->pack(-side => 'left');
+			$top->Busy;
+			$self->load_options;
+			$top->Unbusy;
+		    }
+		  )->grid(-row => 1, -column => 1, -sticky => 'ew');
 	if (!$nosave) {
 	    my $sb;
 	    $sb = $f->Button(-text => $string->{'save'},
@@ -636,14 +656,14 @@ sub option_editor {
 				 }
 				 $top->Unbusy;
 			     }
-			    )->pack(-side => 'left');
+			    )->grid(-row => 1, -column => 2, -sticky => 'ew');
 	}
     }
     $f->Button(-text => $string->{'defaults'},
 	       -command => sub {
 		   $self->set_defaults;
 	       }
-	      )->pack(-side => 'left');
+	      )->grid(-row => 1, -column => 3, -sticky => 'ew');
 
     &$callback($self, $opt_editor) if $callback;
 
@@ -1061,7 +1081,7 @@ perl5.004 (perl5.003 near 5.004 may work too, e.g perl5.003_26)
 
 =item *
 
-Tk400.202 (better: Tk400.203) (only if you want the GUI)
+Tk400.202 (better: Tk400.204) (only if you want the GUI)
 
 =item *
 
@@ -1091,15 +1111,12 @@ The option editor probably should be a real widget.
 The option editor window may grow very large if NoteBook is not used (should
 use a scrollable frame).
 
-You should use Tk400.203, since Tk::Balloon has a bug when its parent
-window is destroyed.
-
-You should use Tk402.204, since Tk::NoteBook issues some warnings when it
-gets destroyed (as of Nov 12, 1997, Tk402.204 is not released).
-
 The API will not be stable until version 1.00.
 
 This manual is confusing. In fact, the whole module is confusing.
+
+Setting variables in the editor should not set immediately the real variables.
+This should be done only by Apply and Ok buttons.
 
 =head1 AUTHOR
 
