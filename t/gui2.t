@@ -52,11 +52,14 @@ if (!$opt->get_options) {
     die $opt->usage;
 }
 
+my $batch_mode = !!$ENV{BATCH};
+my $timerlen = ($batch_mode ? 1000 : 60*1000);
+
 use Tk;
 $top = new MainWindow;
 $top->after(100, sub {
 		my $e = $opt->option_editor($top);
-		$e->after(60*1000, sub { $e->destroy });
+		$e->after($timerlen, sub { $e->destroy });
 		$e->waitWindow;
 		print "ok 1\n";
 		&in_frame;
@@ -66,7 +69,7 @@ MainLoop;
 sub in_frame {
     $top->Label(-text => 'Options editor in frame')->pack;
     my $e = $opt->option_editor($top, -toplevel => 'Frame')->pack;
-    $e->after(60*1000, sub { $e->destroy });
+    $e->after($timerlen, sub { $e->destroy });
     $e->waitWindow;
     print "ok 2\n";
     $top->destroy;
