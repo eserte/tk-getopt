@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.5 1997/02/15 15:18:10 eserte Exp $
+# $Id: Getopt.pm,v 1.6 1997/02/16 04:39:00 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright © 1997 Slaven Rezic. All rights reserved.
@@ -15,20 +15,36 @@
 package Tk::Options;
 use Tk;
 use Tk::NoteBook;
-use Tk::LabEntry;
 use Getopt::Long;
 use strict;
 use vars qw($loadoptions $VERSION);
 
-$VERSION = '0.11';
+$VERSION = '0.12';
 
 sub new {
     my($pkg, %a) = @_;
     my $self = {};
-    die "No opttable array ref" if !exists $a{'-opttable'};
-    $self->{'opttable'} = $a{'-opttable'};
-    die "No options hash ref" if !exists $a{'-options'};
-    $self->{'options'} = $a{'-options'};
+
+    if (exists $a{-opttable}) {
+	$self->{'opttable'} = $a{'-opttable'};
+	die "No options hash ref" if !exists $a{'-options'};
+	$self->{'options'} = $a{'-options'};
+#    } elsif (exists $a{-getopt}) {
+#	# build opttable
+#	my %getopt = %{$a{-getopt}};
+#	my $optdesc;
+#	foreach $optdesc (keys %getopt) {
+#	    if ($optdesc !~ /^(\w+[-\w|]*)?(!|[=:][infse][@%]?)?$/) {
+#		warn "Error in option spec: \"", $optdesc, "\"\n";
+#		next;
+#	    }
+#	    push(@{$self->{'opttable'}}, [$1, $2, undef]);
+#	    $getopt{$optdesc} = $self->{'options'}->{$1};
+#	}
+    } else {
+	die "No opttable array ref or getopt hash ref";
+    }
+
     $self->{'filename'} = $a{'-filename'};
     $self->{'toplevel'} = $a{'-toplevel'} || 'Toplevel';
     bless $self, $pkg;
@@ -48,9 +64,11 @@ sub load_options {
     my($self, $filename) = @_;
     $filename = $self->{'filename'} if !$filename;
     return if !$filename;
-    eval qq{do "$filename"};
-    if ($@) {
-	warn $@;
+    require Safe;
+    my $c = new Safe;
+    $c->share('$loadoptions');
+    if (!$c->rdo($filename)) {
+	warn "Can't load $filename";
 	undef;
     } else {
 	my $opt;
@@ -125,6 +143,7 @@ sub usage {
 	    $usage .= join(', ', 
 			   sort { length $a <=> length $b }
 			   map { _getopt_long_dash($_) }
+			   map { ($opt->[1] eq '!' ? "[no]" : "") . $_ }
 			   ($opt->[0], @{$opt->[3]{'alias'}}));
 	    $usage .= "\t" . $opt->[3]{'help'};
 	    $usage .= " (default: " . $opt->[2] . ") " if $opt->[2];
@@ -161,6 +180,80 @@ sub do_options {
     }
 }
 
+sub _create_page {
+    my($self, $optnote, $current_top, $optlist) = @_;
+    my $current_page = $optnote->{$current_top};
+    my $opt;
+    my $row = -1;
+    foreach $opt (@{$optlist->{$current_top}}) {
+	my $f = $current_page;
+	my $label;
+	if (exists $opt->[3]{'label'}) {
+	    $label = $opt->[3]{'label'};
+	} else {
+	    $label = $opt->[0];
+	    if ($label =~ /^(.*)-/ && $1 eq $current_top) {
+		$label = $';
+	    }
+	}
+	$row++;
+	$f->Label(-text => $label)->grid(-row => $row, -column => 0,
+					 -sticky => 'w');
+	if ($opt->[1] eq '!' or $opt->[1] eq '') {
+	    $f->Checkbutton
+	      (-variable => \$self->{'options'}->{$opt->[0]}
+	      )->grid(-row => $row, -column => 1, -sticky => 'w');
+	} elsif ($opt->[1] =~ /i|f/ 
+		 && exists $opt->[3]{'range'}) {
+	    $f->Scale
+	      (-orient => 'horizontal',
+	       -from => $opt->[3]{'range'}[0],
+	       -to => $opt->[3]{'range'}[1],
+	       -showvalue => 1,
+	       -resolution => ($opt->[1] =~ /f/ ? 0 : 1),
+	       -variable => \$self->{'options'}->{$opt->[0]}
+	      )->grid(-row => $row, -column => 1, -sticky => 'w');
+	} elsif ($opt->[1] =~ /(s|i|f)/) {
+	    if (exists $opt->[3]{'choices'}) {
+		require Tk::BrowseEntry;
+		my $w = $f->BrowseEntry
+		  (-variable => \$self->{'options'}->{$opt->[0]}
+		  )->grid(-row => $row, -column => 1, -sticky => 'w');
+		my @optlist = @{$opt->[3]{'choices'}};
+		unshift(@optlist, $opt->[2]) if defined $opt->[2];
+		my $o;
+		foreach $o (@optlist) {
+		    $w->insert("end", $o);
+		}
+	    } else {
+		$f->Entry
+		  (-textvariable => \$self->{'options'}->{$opt->[0]}
+		  )->grid(-row => $row, -column => 1, -sticky => 'w');
+	    }
+	} else {
+	    warn "Can't generate for $opt->[0]";
+	}
+#	    if (exists $opt->[3]{'help'} && defined $f) {
+#		require Tk::Balloon;
+#		if (!defined $balloon) {
+#		    $balloon = $optedit->Balloon;
+#		}
+#		$balloon->attach($f, -msg => $opt->[3]{'help'});
+#	    }
+	if (exists $opt->[3]{'longhelp'}) {
+	    $f->Button(-text => '?',
+		       -padx => 1,
+		       -pady => 1,
+		       -command => sub {
+			   $f->Toplevel
+			     (-title => $label
+			     )->Label(-text => $opt->[3]{'longhelp'}
+				     )->pack;
+		       })->grid(-row => $row, -column => 2, -sticky => 'w');
+	}
+    }
+}
+
 sub options_editor {
     my($self, $top, $string) = @_;
     if (!defined $string) {
@@ -176,83 +269,32 @@ sub options_editor {
     my $optedit =
       eval '$top->' . $self->{'toplevel'} . '(-title => $string->{optedit})';
     my $optnote = $optedit->NoteBook(-ipadx => 6, -ipady => 6);
+    my $nopage = 1;
     $optnote->pack(-expand => 1, -fill => 'both');
-    my($current_page, $current_top, $balloon);
+    my $current_top;
+    my $optlist = {};
     my $opt;
     foreach $opt (@{$self->{'opttable'}}) {
-	if (ref $opt ne 'ARRAY') {
-	    $current_top = $opt;
-	    $current_page = $optnote->add($opt, -label => $opt);
+	if (ref $opt ne 'ARRAY' || $nopage) {
+	    undef $nopage if ref $opt ne 'ARRAY';
+	    my $label = ($nopage ? $string->{'optedit'} : $opt);
+	    $current_top = lc($label);
+	    my $c = $current_top;
+	    $optlist->{$c} = [];
+	    $optnote->add($c,
+			  -label => $label,
+			  -anchor => 'w',
+			  -createcmd =>
+			  sub {
+			      $self->_create_page($optnote, $c, $optlist);
+			  });
+	    if ($nopage) {
+		undef $nopage;
+		redo;
+	    }
 	} else {
-	    my $f = $current_page->Frame->pack(-side => 'top', -anchor => 'w',
-					       -fill => 'x');
-	    my $label;
-	    if (exists $opt->[3]{'label'}) {
-		$label = $opt->[3]{'label'};
-	    } else {
-		$label = $opt->[0];
-		if ($label =~ /^(.*)-/ && $1 eq $current_top) {
-		    $label = $';
-		}
-	    }
-	    if ($opt->[1] eq '!') {
-		$f->Checkbutton
-		  (-text => $label,
-		   -variable => \$self->{'options'}->{$opt->[0]}
-		  )->pack(-side => 'left');
-	    } elsif ($opt->[1] =~ /i|f/ 
-		     && exists $opt->[3]{'range'}) {
-		$f->Label(-text => $label)->pack(-side => 'left');
-		$f->Scale
-		  (-orient => 'horizontal',
-		   -from => $opt->[3]{'range'}[0],
-		   -to => $opt->[3]{'range'}[1],
-		   -showvalue => 1,
-		   -resolution => ($opt->[1] =~ /f/ ? 0 : 1),
-		   -variable => \$self->{'options'}->{$opt->[0]}
-		  )->pack(-side => 'left');
-	    } elsif ($opt->[1] =~ /(s|i|f)/) {
-		if (exists $opt->[3]{'choices'}) {
-		    require Tk::BrowseEntry;
-		    my $w = $f->BrowseEntry
-		      (-label => $label,
-		       -labelPack => [-side => 'left'],
-		       -variable => \$self->{'options'}->{$opt->[0]}
-		      )->pack(-side => 'left');
-		    my @optlist = @{$opt->[3]{'choices'}};
-		    unshift(@optlist, $opt->[2]) if defined $opt->[2];
-		    my $o;
-		    foreach $o (@optlist) {
-			$w->insert("end", $o);
-		    }
-		} else {
-		    $f->LabEntry
-		      (-label => $label,
-		       -labelPack => [-side => 'left'],
-		       -textvariable => \$self->{'options'}->{$opt->[0]}
-		      )->pack(-side => 'left');
-		}
-	    } else {
-		warn "Can't generate for $opt->[0]";
-	    }
-#	    if (exists $opt->[3]{'help'} && defined $f) {
-#		require Tk::Balloon;
-#		if (!defined $balloon) {
-#		    $balloon = $optedit->Balloon;
-#		}
-#		$balloon->attach($f, -msg => $opt->[3]{'help'});
-#	    }
-	    if (exists $opt->[3]{'longhelp'}) {
-		$f->Button(-text => '?',
-			   -padx => 1,
-			   -pady => 1,
-			   -command => sub {
-			       $f->Toplevel
-				 (-title => $label
-				 )->Label(-text => $opt->[3]{'longhelp'}
-					 )->pack;
-			   })->pack(-side => 'left');
-	    }
+	    push(@{$optlist->{$current_top}}, $opt)
+	      if !$opt->[3]{'nogui'};
 	}
     }
 
