@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.17 1997/11/11 23:15:11 eserte Exp $
+# $Id: Getopt.pm,v 1.18 1997/11/11 23:20:15 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright © 1997 Slaven Rezic. All rights reserved.
@@ -1039,6 +1039,9 @@ use a scrollable frame).
 
 You should use Tk400.203, since Tk::Balloon has a bug when its parent
 window is destroyed.
+
+You should use Tk402.204, since Tk::NoteBook issues some warnings when it
+gets destroyed (as of Nov 12, 1997, Tk402.204 is not released).
 
 The API will not be stable until version 1.00.
 
