@@ -36,15 +36,17 @@ or an alternative F<Getopt::Long> interface
 =head1 DESCRIPTION
 
 F<Tk::Getopt> provides an interface to access command line options via
-L<Getopt::Long|Getopt::Long> and editing with a graphical user interface via a Tk window.
+L<Getopt::Long|Getopt::Long> and editing with a graphical user
+interface via a Tk window.
 
-Unlike F<Getopt::Long>, this package uses a object oriented interface, so you
-have to create a new F<Tk::Getopt> object with B<new>. Unlike other
-packages in the Tk hierarchy, this package does not define a Tk widget. The
-graphical interface is calles by the method B<option_editor>.
+Unlike F<Getopt::Long>, this package uses a object oriented interface,
+so you have to create a new F<Tk::Getopt> object with B<new>. Unlike
+other packages in the Tk hierarchy, this package does not define a Tk
+widget. The graphical interface is calles by the method
+B<option_editor>.
 
-After creating an object with B<new>, you can parse command line options
-by calling B<get_options>. This method calls itself
+After creating an object with B<new>, you can parse command line
+options by calling B<get_options>. This method calls itself
 B<Getopt::Long::GetOptions>.
 
 =head1 REQUIREMENTS
@@ -59,7 +61,7 @@ perl5.004 (perl5.003 near 5.004 may work too, e.g perl5.003_26)
 
 =item *
 
-Tk400.202 (better: Tk400.203) (only if you want the GUI)
+Tk400.202 (better: Tk800.007) (only if you want the GUI)
 
 =item *
 
