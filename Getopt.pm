@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.40 2001/04/05 07:37:54 eserte Exp $
+# $Id: Getopt.pm,v 1.41 2001/05/06 10:00:29 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998,1999,2000 Slaven Rezic. All rights reserved.
@@ -24,7 +24,7 @@ use constant OPTTYPE  => 1;
 use constant DEFVAL   => 2;
 use constant OPTEXTRA => 3;
 
-$VERSION = '0.44';
+$VERSION = '0.45';
 
 $DEBUG = 0;
 $x11_pass_through = 0;
@@ -388,7 +388,7 @@ sub process_options {
 	    my $v = $ {$self->_varref($_)};
 	    my @choices = @{$_->[OPTEXTRA]{'choices'}};
 	    push(@choices, $_->[DEFVAL]) if defined $_->[DEFVAL];
-	    if (!grep(/^$v$/, @choices)) {
+	    if (!grep($_ eq $v, @choices)) {
 		if (defined $former) {
 		    warn "Not allowed: " . $ {$self->_varref($_)}
 		    . " for $opt. Using old value $former->{$opt}";
@@ -476,8 +476,12 @@ sub _list_widget {
     my @optlist = @{$opt->[OPTEXTRA]{'choices'}};
     unshift(@optlist, $opt->[DEFVAL]) if defined $opt->[DEFVAL];
     my $o;
+    my %seen;
     foreach $o (@optlist) {
-	$w->insert("end", $o);
+	if (!$seen{$o}) {
+	    $w->insert("end", $o);
+	    $seen{$o}++;
+	}
     }
     $w;
 }
@@ -581,9 +585,18 @@ sub _filedialog_widget {
 	    $e->insert("end", $o);
 	}
     } else {
-	($e) = $self->_fix_layout($topframe, "Entry",
-				  -textvariable => $self->_varref($opt));
-
+	if (!eval '
+               use Tk::PathEntry;
+               my $real_e;
+               ($e, $real_e) = $self->_fix_layout($topframe, "PathEntry",
+                                                  -textvariable => $self->_varref($opt));
+               # XXX Escape is already used for cancelling Tk::Getopt
+               $real_e->bind("<$_>" => sub { $real_e->Finish }) for (qw/Return/);
+               1;
+           ') {
+	    ($e) = $self->_fix_layout($topframe, "Entry",
+				      -textvariable => $self->_varref($opt));
+	}
     }
     $e->pack(-side => 'left');
 
