@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.14 1997/11/05 23:39:53 eserte Exp $
+# $Id: Getopt.pm,v 1.15 1997/11/07 00:20:26 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright © 1997 Slaven Rezic. All rights reserved.
@@ -250,8 +250,8 @@ sub process_options ($$;$) {
     my $options = $self->{'options'};
     foreach ($self->_opt_array) {
 	my $opt = $_->[0];
-	if (exists $_->[3]{'callback'}) {
-	    # execute callback if value changed
+	if (defined $_->[3] && exists $_->[3]{'callback'}) {
+	    # execute callback if value has changed
 	    if (!(defined $former
 		  && (!exists $former->{$opt} 
 		      || $ {$self->_varref($_)} eq $former->{$opt}))) {
@@ -259,7 +259,7 @@ sub process_options ($$;$) {
 	    }
 	}
 	if ($_->[3]{'strict'}) {
-	    # check vor valid values
+	    # check for valid values
 	    my $v = $ {$self->_varref($_)};
 	    if (!grep(/^$v$/, @{$_->[3]{'choices'}})) {
 		if (defined $former) {
@@ -384,15 +384,16 @@ sub _create_page ($$$$$$) {
 	if (exists $opt->[3]{'widget'}) {
 	    # own widget
 	    $w = &{$opt->[3]{'widget'}}($self, $f, $opt);
-	} elsif ($opt->[1] eq '!' or $opt->[1] eq '') {
+	} elsif (defined $opt->[1] && $opt->[1] eq '!' or $opt->[1] eq '') {
 	    $w = $self->_boolean_widget($f, $opt);
-	} elsif ($opt->[1] =~ /i/) {
+	} elsif (defined $opt->[1] && $opt->[1] =~ /i/) {
 	    $w = $self->_integer_widget($f, $opt);
-	} elsif ($opt->[1] =~ /f/) {
+	} elsif (defined $opt->[1] && $opt->[1] =~ /f/) {
 	    $w = $self->_float_widget($f, $opt);
-	} elsif ($opt->[1] =~ /s/) {
+	} elsif (defined $opt->[1] && $opt->[1] =~ /s/) {
 	    # XXX weitere Möglichkeiten: exefile, file mit pattern... etc.
-	    if ($opt->[3]{'subtype'} eq 'file') {
+	    if (defined $opt->[3] && exists $opt->[3]{'subtype'} &&
+		$opt->[3]{'subtype'} eq 'file') {
 		$w = $self->_fileselect_widget($f, $opt);
 	    } else {
 		$w = $self->_string_widget($f, $opt);
@@ -441,6 +442,7 @@ sub option_editor ($$;%) {
     my $nosave    = delete $a{'-nosave'};
     my $toplevel  = delete $a{'-toplevel'} || 'Toplevel';
     my $use_statusbar = delete $a{'-statusbar'};
+    my $wait      = delete $a{'-wait'};
     my $string    = delete $a{'-string'};
     if (!defined $string) {
 	$string = {'optedit' => 'Option editor',
@@ -522,7 +524,7 @@ sub option_editor ($$;%) {
 					 (undef, # XXX remove in 400.203
 					  $opt_notebook, $c,
 					  $optlist, $balloon);
-				   });
+                                   });
 	    } else {
 		push(@{$optlist->{$current_top}}, $opt)
 		  if !$opt->[3]{'nogui'};
@@ -536,24 +538,27 @@ sub option_editor ($$;%) {
 
     my $f = $opt_editor->Frame;
     $f->pack(-anchor => 'w');
-    $f->Button(-text => $string->{'ok'},
-	       -command => sub {
-		   $self->process_options(\%undo_options, 1);
-		   if (!$dont_use_notebook) {
-		       $self->{'raised'} = $opt_notebook->raised();
+    my $ok_button
+      = $f->Button(-text => $string->{'ok'},
+		   -underline => 0,
+		   -command => sub {
+		       $self->process_options(\%undo_options, 1);
+		       if (!$dont_use_notebook) {
+			   $self->{'raised'} = $opt_notebook->raised();
+		       }
+		       $opt_editor->destroy;
 		   }
-		   $opt_editor->destroy;
-	       }
-	      )->pack(-side => 'left');
-    $f->Button(-text => $string->{'cancel'},
-	       -command => sub {
-		   $self->_do_undo(\%undo_options);
-		   if (!$dont_use_notebook) {
-		       $self->{'raised'} = $opt_notebook->raised();
+		  )->pack(-side => 'left');
+    my $cancel_button
+      = $f->Button(-text => $string->{'cancel'},
+		   -command => sub {
+		       $self->_do_undo(\%undo_options);
+		       if (!$dont_use_notebook) {
+			   $self->{'raised'} = $opt_notebook->raised();
+		       }
+		       $opt_editor->destroy;
 		   }
-		   $opt_editor->destroy;
-	       }
-	      )->pack(-side => 'left');
+		  )->pack(-side => 'left');
     $f->Button(-text => $string->{'undo'},
 	       -command => sub {
 		   $self->_do_undo(\%undo_options);
@@ -591,6 +596,17 @@ sub option_editor ($$;%) {
 
     if (!$dont_use_notebook && defined $self->{'raised'}) {
 	$opt_notebook->raise($self->{'raised'});
+    }
+
+    $opt_editor->bind('<Escape>' => sub { $cancel_button->invoke });
+    $opt_editor->bind('<Alt-o>' => sub { $ok_button->invoke });
+
+    eval { $opt_editor->Popup };
+    if ($wait) {
+	my $wait_var = 1;
+	$opt_editor->OnDestroy(sub { undef $wait_var });
+	$opt_editor->grab;
+	$opt_editor->waitVariable(\$wait_var);
     }
 
     $opt_editor;
@@ -906,6 +922,10 @@ Use an additional status bar for help messages.
 Change button labels and title. This argument should be a hash reference
 with following keys: C<optedit>, C<undo>, C<lastsaved>, C<save>, C<defaults>,
 C<ok>, C<cancel>.
+
+=item -wait
+
+Do not return immediately, but rather wait for the user pressing OK or Cancel.
 
 =back
 
