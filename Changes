@@ -1,5 +1,8 @@
 Revision history for Perl extension Tk::Getopt.
 
+0.42
+	- waitVisibility in option_editor caused a warning - fixed
+
 0.41
 	- integer and float entries are validated
 	- file: subtype dir possible
