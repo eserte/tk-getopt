@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.35 2000/09/10 21:29:09 eserte Exp $
+# $Id: Getopt.pm,v 1.36 2000/09/29 00:05:38 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998,1999,2000 Slaven Rezic. All rights reserved.
@@ -16,14 +16,14 @@ package Tk::Getopt;
 require 5.003;
 use strict;
 use vars qw($loadoptions $VERSION $x11_pass_through
-	    $CHECKMARK_OFF $CHECKMARK_ON $DEBUG
+	    $CHECKMARK_OFF $CHECKMARK_ON $FILE_IMAGE $DEBUG
 	   );
 use constant OPTNAME  => 0;
 use constant OPTTYPE  => 1;
 use constant DEFVAL   => 2;
 use constant OPTEXTRA => 3;
 
-$VERSION = '0.42';
+$VERSION = '0.43';
 
 $DEBUG = 0;
 $x11_pass_through = 0;
@@ -380,32 +380,49 @@ sub process_options {
     }
 }
 
+# try to work around weird browse entry
+sub _fix_layout {
+    my($self, $frame, $widget, %args) = @_;
+    my($w, $real_w);
+    if ($Tk::VERSION < 999) { # XXX
+	my $f = $frame->Frame;
+	$f->Label->pack(-side => "left"); # dummy
+	$real_w = $f->$widget(%args)->pack(-side => "left", -padx => 1);
+	$w = $f;
+    } else {
+	$w = $real_w = $frame->$widget(%args);
+    }
+    ($w, $real_w);
+}
+
 sub _boolean_widget {
     my($self, $frame, $opt) = @_;
-    $frame->Checkbutton(-variable => $self->_varref($opt));
+    ($self->_fix_layout($frame, "Checkbutton",
+			-variable => $self->_varref($opt)))[0];
 }
 
 sub _boolean_checkmark_widget {
     # XXX hangs with Tk800.014?!
     my($self, $frame, $opt) = @_;
     _create_checkmarks($frame);
-    $frame->Checkbutton(-variable => $self->_varref($opt),
+    ($self->_fix_layout($frame, "Checkbutton",
+			-variable => $self->_varref($opt),
 			-image => $CHECKMARK_OFF,
 			-selectimage => $CHECKMARK_ON,
 			-indicatoron => 0,
-		       );
+		       ))[0];
 }
 
 sub _number_widget {
     my($self, $frame, $opt) = @_;
-    $frame->Scale
-      (-orient => 'horizontal',
-       -from => $opt->[OPTEXTRA]{'range'}[0],
-       -to => $opt->[OPTEXTRA]{'range'}[1],
-       -showvalue => 1,
-       -resolution => ($opt->[OPTTYPE] =~ /f/ ? 0 : 1),
-       -variable => $self->_varref($opt)
-      );
+    ($self->_fix_layout($frame, "Scale",
+			-orient => 'horizontal',
+			-from => $opt->[OPTEXTRA]{'range'}[0],
+			-to => $opt->[OPTEXTRA]{'range'}[1],
+			-showvalue => 1,
+			-resolution => ($opt->[OPTTYPE] =~ /f/ ? 0 : 1),
+			-variable => $self->_varref($opt)
+		       ))[0];
 }
 
 sub _integer_widget {
@@ -448,21 +465,22 @@ sub _string_widget {
     if (exists $opt->[OPTEXTRA]{'choices'}) {
 	$self->_list_widget($frame, $opt);
     } else {
-	my $e = $frame->Entry(-textvariable => $self->_varref($opt));
+	my($e, $ee) = $self->_fix_layout
+	    ($frame, "Entry", -textvariable => $self->_varref($opt));
 	if ($args{-restrict}) {
 	    eval {
 		if ($args{-restrict} eq "=i") {
-		    $e->configure
+		    $ee->configure
 			(-validate => "all",
 			 -vcmd => sub {
-			     $_[0] =~ /^([+-]?\d+|)$/;
+			     $_[0] =~ /^([+-]?\d+|)$/
 			 },
 			);
 		} elsif ($args{-restrict} eq "=f") {
-		    $e->configure
+		    $ee->configure
 			(-validate => "all",
 			 -vcmd => sub {
-			     $_[0] =~ /^(|([+-]?)(?=\d|\.\d)\d*(\.\d*)?([Ee]([+-]?\d+))?)$/;
+			     $_[0] =~ /^(|([+-]?)(?=\d|\.\d)\d*(\.\d*)?([Ee]([+-]?\d+))?)$/
 			 },
 			);
 		}
@@ -488,12 +506,15 @@ sub _filedialog_widget {
 	    $e->insert("end", $o);
 	}
     } else {
-	$e = $topframe->Entry(-textvariable => $self->_varref($opt));
+	($e) = $self->_fix_layout($topframe, "Entry",
+				  -textvariable => $self->_varref($opt));
+
     }
     $e->pack(-side => 'left');
 
     my $b = $topframe->Button
-      (-text => 'Browse...',
+      (#-text => 'Browse...',
+       _get_browse_args($topframe),
        -command => sub {
 	   require File::Basename;
 	   my($fd, $filedialog);
@@ -564,6 +585,7 @@ sub _filedialog_widget {
 
 # Creates one page of the Notebook widget
 # Arguments:
+#   $current_page: Frame for drawing
 #   $optnote: Notebook widget
 #   $current_top: title of Notebook page
 #   $optlist: list of options for this Notebook page
@@ -681,6 +703,9 @@ sub option_editor {
     my $use_statusbar = delete $a{'-statusbar'};
     my $wait      = delete $a{'-wait'};
     my $string    = delete $a{'-string'};
+    my $delay_page_create = (exists $a{'-delaypagecreate'}
+			     ? delete $a{'-delaypagecreate'}
+			     : 1);
     if (!defined $string) {
 	$string = {'optedit'   => 'Option editor',
 		   'undo'      => 'Undo',
@@ -753,31 +778,46 @@ sub option_editor {
     } else {
 	my @opttable = @{$self->{'opttable'}};
 	unshift(@opttable, $string->{'optedit'})
-	  if ref $opttable[OPTNAME] eq 'ARRAY'; # put head
+	    if ref $opttable[OPTNAME] eq 'ARRAY'; # put head
+
+	my $page_create_page;
 	foreach $opt (@opttable) {
 	    if (ref $opt ne 'ARRAY') {
+		if (!$delay_page_create && $page_create_page) {
+		    $page_create_page->();
+		    undef $page_create_page;
+		}
+
 		my $label = $opt;
 		$current_top = lc($label);
 		my $c = $current_top;
 		$optlist->{$c} = [];
 		$msglist->{$c} = "";
-		$opt_notebook->add($c,
-				   -label => $label,
-				   -anchor => 'w',
-				   -createcmd =>
-				   sub {
-				       $self->_create_page
-					 ($_[0],
-					  $opt_notebook, $c,
-					  $optlist, $balloon, $msglist);
-                                   });
+		my $page_f;
+		$page_create_page = sub {
+		    $self->_create_page
+			($page_f,
+			 $opt_notebook, $c,
+			 $optlist, $balloon, $msglist);
+		};
+		$page_f = $opt_notebook->add
+		    ($c,
+		     -label => $label,
+		     -anchor => 'w',
+		     ($delay_page_create?(-createcmd => $page_create_page):()),
+		    );
             } elsif ($opt->[OPTNAME] eq '') {
 		$msglist->{$current_top} = $opt->[DEFVAL];
 	    } else {
 		push @{$optlist->{$current_top}}, $opt
-		  if !$opt->[OPTEXTRA]{'nogui'};
+		    if !$opt->[OPTEXTRA]{'nogui'};
 	    }
 	}
+	if (!$delay_page_create && $page_create_page) {
+	    $page_create_page->();
+	    undef $page_create_page;
+	}
+
     }
 
     require Tk::Tiler;
@@ -952,6 +992,20 @@ EOF
 R0lGODdhDgAOAIAAAAAAAP///ywAAAAADgAOAAACDYyPqcvtD6OctNqrSAEAOw==
 EOF
       unless $CHECKMARK_OFF;
+}
+
+sub _get_browse_args {
+    my $w = shift;
+    if (!defined $FILE_IMAGE) {
+	require Tk::Pixmap;
+	$FILE_IMAGE = $w->Pixmap(-file => Tk->findINC("openfolder.xpm"));
+	$FILE_IMAGE = 0 if (!$FILE_IMAGE);
+    }
+    if ($FILE_IMAGE) {
+	(-image => $FILE_IMAGE);
+    } else {
+	(-text => "Browse...");
+    }
 }
 
 1;
