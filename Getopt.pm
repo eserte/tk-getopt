@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.13 1997/10/29 15:15:51 eserte Exp $
+# $Id: Getopt.pm,v 1.14 1997/11/05 23:39:53 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright © 1997 Slaven Rezic. All rights reserved.
@@ -423,6 +423,18 @@ sub _create_page ($$$$$$) {
     }
 }
 
+sub _do_undo ($) {
+    my($self, $undo_options) = @_;
+    my $opt;
+    foreach $opt ($self->_opt_array) {
+	if (exists $undo_options->{$opt->[0]}) {
+	    my $swap = $ {$self->_varref($opt)};
+	    $ {$self->_varref($opt)} = $undo_options->{$opt->[0]};
+	    $undo_options->{$opt->[0]} = $swap;
+	}
+    }
+}
+
 sub option_editor ($$;%) {
     my($self, $top, %a) = @_;
     my $callback  = delete $a{'-callback'};
@@ -525,19 +537,26 @@ sub option_editor ($$;%) {
     my $f = $opt_editor->Frame;
     $f->pack(-anchor => 'w');
     $f->Button(-text => $string->{'ok'},
-	       -command => sub { $self->process_options(\%undo_options, 1);
-				 $opt_editor->destroy; }
+	       -command => sub {
+		   $self->process_options(\%undo_options, 1);
+		   if (!$dont_use_notebook) {
+		       $self->{'raised'} = $opt_notebook->raised();
+		   }
+		   $opt_editor->destroy;
+	       }
 	      )->pack(-side => 'left');
     $f->Button(-text => $string->{'cancel'},
-	       -command => sub { $opt_editor->destroy; }
+	       -command => sub {
+		   $self->_do_undo(\%undo_options);
+		   if (!$dont_use_notebook) {
+		       $self->{'raised'} = $opt_notebook->raised();
+		   }
+		   $opt_editor->destroy;
+	       }
 	      )->pack(-side => 'left');
     $f->Button(-text => $string->{'undo'},
 	       -command => sub {
-		   my $opt;
-		   foreach $opt ($self->_opt_array) {
-		       $ {$self->_varref($opt)} = $undo_options{$opt->[0]}
-		         if exists $undo_options{$opt->[0]}; 
-		   }
+		   $self->_do_undo(\%undo_options);
 	       }
 	      )->pack(-side => 'left');
     if ($self->{'filename'}) {
@@ -569,6 +588,10 @@ sub option_editor ($$;%) {
 	      )->pack(-side => 'left');
 
     &$callback($self, $opt_editor) if $callback;
+
+    if (!$dont_use_notebook && defined $self->{'raised'}) {
+	$opt_notebook->raise($self->{'raised'});
+    }
 
     $opt_editor;
 }
@@ -909,7 +932,7 @@ Set old values and close option editor window.
 
 =item Undo
 
-Set old values.
+Set old values. Further selections toggle between new and old values.
 
 =item Last saved
 
