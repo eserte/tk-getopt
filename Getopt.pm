@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.44 2002/03/06 00:02:05 eserte Exp $
+# $Id: Getopt.pm,v 1.45 2002/08/02 12:55:32 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998,1999,2000 Slaven Rezic. All rights reserved.
@@ -24,7 +24,7 @@ use constant OPTTYPE  => 1;
 use constant DEFVAL   => 2;
 use constant OPTEXTRA => 3;
 
-$VERSION = '0.47';
+$VERSION = '0.48';
 
 $DEBUG = 0;
 $x11_pass_through = 0;
@@ -178,11 +178,13 @@ sub set_defaults {
 	if (defined $opt->[DEFVAL]) {
 	    my $ref = ref $self->_varref($opt);
 	    if      ($ref eq 'ARRAY') {
-		@ {$self->_varref($opt)} = $opt->[DEFVAL];
+		@ {$self->_varref($opt)} = @{ $opt->[DEFVAL] };
 	    } elsif ($ref eq 'HASH') {
-		% {$self->_varref($opt)} = $opt->[DEFVAL];
-	    } else {
+		% {$self->_varref($opt)} = %{ $opt->[DEFVAL] };
+	    } elsif ($ref eq 'SCALAR') {
 		$ {$self->_varref($opt)} = $opt->[DEFVAL];
+	    } else {
+		die "Invalid reference type for option $opt->[OPTNAME]";
 	    }
 	}
     }
@@ -875,9 +877,22 @@ sub _do_undo {
     foreach $opt ($self->_opt_array) {
 	next if $opt->[OPTEXTRA]{'nogui'};
 	if (exists $undo_options->{$opt->[OPTNAME]}) {
-	    my $swap = $ {$self->_varref($opt)};
-	    $ {$self->_varref($opt)} = $undo_options->{$opt->[OPTNAME]};
-	    $undo_options->{$opt->[OPTNAME]} = $swap;
+	    my $ref = ref $self->_varref($opt);
+	    if      ($ref eq 'ARRAY') {
+		my @swap = @ {$self->_varref($opt)};
+		@ {$self->_varref($opt)} = @{ $undo_options->{$opt->[OPTNAME]} };
+		@{ $undo_options->{$opt->[OPTNAME]}} = @swap;
+	    } elsif ($ref eq 'HASH') {
+		my %swap = % {$self->_varref($opt)};
+		% {$self->_varref($opt)} = %{ $undo_options->{$opt->[OPTNAME]} };
+		%{ $undo_options->{$opt->[OPTNAME]}} = %swap;
+	    } elsif ($ref eq 'SCALAR') {
+		my $swap = $ {$self->_varref($opt)};
+		$ {$self->_varref($opt)} = $undo_options->{$opt->[OPTNAME]};
+		$undo_options->{$opt->[OPTNAME]} = $swap;
+	    } else {
+		die "Invalid reference type for option $opt->[OPTNAME]";
+	    }
 	}
     }
 }
@@ -920,8 +935,10 @@ sub option_editor {
 	    @{ $undo_options{$opt->[OPTNAME]} } = @ {$self->_varref($opt)};
 	} elsif ($ref eq 'HASH') {
 	    %{ $undo_options{$opt->[OPTNAME]} } = % {$self->_varref($opt)};
-	} else {
+	} elsif ($ref eq 'SCALAR') {
 	    $undo_options{$opt->[OPTNAME]}      = $ {$self->_varref($opt)};
+	} else {
+	    die "Invalid reference type for option $opt->[OPTNAME]";
 	}
     }
 
@@ -1677,6 +1694,32 @@ Here is an example for using a complex opttable description:
           longhelp => 'And this is a slightly longer help'
           # longer help displayed in the GUI's help window
           ]);
+
+=head1 COMPATIBILITY
+
+The argument to -opttable can be converted to a C<Getopt::Long>
+compatible argument list with the following function:
+
+  sub opttable_to_getopt {
+      my(%args) = @_;
+      my $options = $args{-options};
+      my @getopt;
+      for (@{$args{-opttable}}) {
+  	if (ref $_) {
+  	    push @getopt, $_->[0].$_->[1];
+  	    if (defined $_->[3] and ref $_->[3] ne 'HASH') {
+  		my %h = splice @$_, 3;
+  		$_->[3] = \%h;
+  	    }
+  	    if ($_->[3]{'var'}) {
+  		push @getopt, $_->[3]{'var'};
+  	    } else {
+  		push @getopt, \$options->{$_->[0]};
+  	    }
+  	}
+      }
+      @getopt;
+  }
 
 =head1 REQUIREMENTS
 
