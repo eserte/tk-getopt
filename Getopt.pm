@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.28 1999/06/09 21:58:23 eserte Exp $
+# $Id: Getopt.pm,v 1.29 1999/06/26 18:23:03 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998,1999 Slaven Rezic. All rights reserved.
@@ -19,7 +19,7 @@ use vars qw($loadoptions $VERSION $x11_pass_through
 	    $CHECKMARK_OFF $CHECKMARK_ON $DEBUG
 	   );
 
-$VERSION = '0.36';
+$VERSION = '0.37';
 
 $DEBUG = 0;
 $x11_pass_through = 0;
@@ -638,7 +638,6 @@ sub option_editor {
 					  ? (-statusbar => $statusbar)
 					  : ());
     }
-    $opt_notebook->pack(-expand => 1, -fill => 'both');
 
     my $optlist = {};
     my $current_top;
@@ -677,10 +676,6 @@ sub option_editor {
 	}
     }
 
-    if (defined $statusbar) {
-	$statusbar->pack(-fill => 'x', -anchor => 'w');
-    }
-
     require Tk::Tiler;
     my $f;
     $f = $opt_editor->Tiler
@@ -698,10 +693,12 @@ sub option_editor {
 	   }
 	   $f->GeometryRequest($f->Width,
 			       2*$bw+$rows*$f->{Sh});
-       })->pack(-fill => 'x');
+       });
     $f->bind('<Configure>' => sub {
-		 if ($f->y + $f->height > $top->height) {
-		     $top->geometry($top->width."x".($f->height+$f->y));
+		 if ($f->y + $f->height > $opt_editor->height) {
+		     $opt_editor->geometry($opt_editor->width .
+					   "x" .
+					   ($f->height+$f->y));
 		 }
 	     });
     my @tiler_b;
@@ -782,6 +779,12 @@ sub option_editor {
     }
 
     $opt_editor->bind('<Escape>' => sub { $cancel_button->invoke });
+
+    $f->pack(-fill => 'x', -side => "bottom");
+    $opt_notebook->pack(-expand => 1, -fill => 'both');
+    if (defined $statusbar) {
+	$statusbar->pack(-fill => 'x', -anchor => 'w');
+    }
 
     if ($opt_editor->can('Popup')) {
 	$opt_editor->Popup;
