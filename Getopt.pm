@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.3 1997/02/15 04:10:20 eserte Exp $
+# $Id: Getopt.pm,v 1.4 1997/02/15 04:30:24 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright © 1997 Slaven Rezic. All rights reserved.
@@ -46,14 +46,15 @@ sub load_options {
 sub process_options {
     my $self = shift;
     my %getopt;
-    foreach (@{$self->{'opttable'}}) {
-	if (ref $_ eq 'ARRAY') {
-	    $self->get_loadoption($_->[0], $_->[2]);
-	    $getopt{_getopt_long_string($_->[0], $_->[1])} =
-	      \$self->{'options'}->{$_->[0]};
-	    foreach (@{$_->[3]{'alias'}}) {
-		$getopt{_getopt_long_string($_, $_->[1])} =
-		  \$self->{'options'}->{$_->[0]};
+    my $opt;
+    foreach $opt (@{$self->{'opttable'}}) {
+	if (ref $opt eq 'ARRAY') {
+	    $self->get_loadoption($opt->[0], $opt->[2]);
+	    $getopt{_getopt_long_string($opt->[0], $opt->[1])} =
+	      \$self->{'options'}->{$opt->[0]};
+	    foreach (@{$opt->[3]{'alias'}}) {
+		$getopt{_getopt_long_string($_, $opt->[1])} =
+		  \$self->{'options'}->{$opt->[0]};
 	    }
 	}
     }
@@ -67,7 +68,7 @@ sub _getopt_long_string {
 }
 
 sub _getopt_long_dash {
-    my $option = @_;
+    my $option = shift;
     (length($option) == 1 ? '' : '-') . "-$option";
 }
 
@@ -77,9 +78,13 @@ sub usage {
     my $opt;
     foreach $opt (@{$self->{'opttable'}}) {
 	if (ref $opt eq 'ARRAY') {
-	    $usage .= _getopt_long_dash($opt->[0]);
-	    $usage .= join('', map { "\n" . _getopt_long_dash($_) } 
-			   @{$opt->[3]{'alias'}});
+	    # The following prints all options as a comma-seperated list
+	    # with one or two dashes, depending on the length of the option.
+	    # Options are sorted by length.
+	    $usage .= join(', ', 
+			   sort { length $a <=> length $b }
+			   map { _getopt_long_dash($_) }
+			   ($opt->[0], @{$opt->[3]{'alias'}}));
 	    $usage .= "\t" . $opt->[3]{'help'};
 	    $usage .= " (default: " . $opt->[2] . ") " if $opt->[2];
 	    $usage .= "\n";
