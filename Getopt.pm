@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.31 1999/08/31 10:03:20 eserte Exp $
+# $Id: Getopt.pm,v 1.32 1999/12/20 21:26:43 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998,1999 Slaven Rezic. All rights reserved.
@@ -18,8 +18,12 @@ use strict;
 use vars qw($loadoptions $VERSION $x11_pass_through
 	    $CHECKMARK_OFF $CHECKMARK_ON $DEBUG
 	   );
+use constant OPTNAME  => 0;
+use constant OPTTYPE  => 1;
+use constant DEFVAL   => 2;
+use constant OPTEXTRA => 3;
 
-$VERSION = '0.38';
+$VERSION = '0.40';
 
 $DEBUG = 0;
 $x11_pass_through = 0;
@@ -33,16 +37,21 @@ sub new {
     if (exists $a{'-opttable'}) {
 	$self->{'opttable'} = delete $a{'-opttable'};
 	foreach (@{$self->{'opttable'}}) {
+	    # Convert from new style without hash for extra options for
+	    # internal operation.
+	    # ['opt', '=s', 'defval', 'x' => 'y', 'z' => 'a', ...] into
+	    # ['opt', '=s', 'defval', {'x' => 'y', 'z' => 'a', ...}]
 	    if (ref $_ eq 'ARRAY' and
-		defined $_->[3] and
-		ref $_->[3] ne 'HASH') {
-		my %h = splice @$_, 3;
-		$_->[3] = \%h;
+		defined $_->[OPTEXTRA] and
+		ref $_->[OPTEXTRA] ne 'HASH') {
+		my %h = splice @$_, OPTEXTRA;
+		$_->[OPTEXTRA] = \%h;
 	    }
-	    if (ref $_ eq 'ARRAY' && $_->[0] =~ /\|/) { # handle aliases
-		my($opt, @aliases) = split(/\|/, $_->[0]);
-		$_->[0] = $opt;
-		push(@{$_->[3]{'aliases'}}, @aliases);
+	    # Handle aliases
+	    if (ref $_ eq 'ARRAY' && $_->[OPTNAME] =~ /\|/) {
+		my($opt, @aliases) = split(/\|/, $_->[OPTNAME]);
+		$_->[OPTNAME] = $opt;
+		push(@{$_->[OPTEXTRA]{'aliases'}}, @aliases);
 	    }
 	}
     } elsif (exists $a{'-getopt'}) {
@@ -126,12 +135,15 @@ sub new {
     bless $self, $pkg;
 }
 
-# Return a list with all option names
+# Return a list with all option names, that is, section labels and
+# descriptions are ignored.
 sub _opt_array {
     my $self = shift;
     my @res;
     foreach (@{$self->{'opttable'}}) {
-	push @res, $_ if ref $_ eq 'ARRAY';
+	push @res, $_
+	    if ref $_ eq 'ARRAY' and
+	       $_->[OPTNAME] ne '';
     }
     @res;
 }
@@ -139,15 +151,15 @@ sub _opt_array {
 # Return a reference to the option variable given by $opt
 sub _varref {
     my($self, $opt) = @_;
-    if($opt->[3]{'var'}) {
-	$opt->[3]{'var'};
+    if($opt->[OPTEXTRA]{'var'}) {
+	$opt->[OPTEXTRA]{'var'};
     } elsif ($self->{'options'}) {
-	\$self->{'options'}{$opt->[0]};
+	\$self->{'options'}{$opt->[OPTNAME]};
     } else {
 	# Link to global $opt_XXX variable.
 	# Make sure a valid perl identifier results.
 	my $v;
-	($v = $opt->[0]) =~ s/\W/_/g;
+	($v = $opt->[OPTNAME]) =~ s/\W/_/g;
 	eval q{\$} . $self->{'caller'} . q{::opt_} . $v; # XXX @, %
     }
 }
@@ -156,8 +168,8 @@ sub set_defaults {
     my $self = shift;
     my $opt;
     foreach $opt ($self->_opt_array) {
-	if (defined $opt->[2]) {
-	    $ {$self->_varref($opt)} = $opt->[2];
+	if (defined $opt->[DEFVAL]) {
+	    $ {$self->_varref($opt)} = $opt->[DEFVAL];
 	}
     }
 }
@@ -184,17 +196,17 @@ sub load_options {
 
     my $opt;
     foreach $opt ($self->_opt_array) {
-	if (exists $loadoptions->{$opt->[0]}) {
+	if (exists $loadoptions->{$opt->[OPTNAME]}) {
 	    if (ref $self->_varref($opt) eq 'CODE') {
-		&{$self->_varref($opt)} if $loadoptions->{$opt->[0]};
+		&{$self->_varref($opt)} if $loadoptions->{$opt->[OPTNAME]};
 	    } elsif (ref $self->_varref($opt) eq 'ARRAY' &&
-		     ref $loadoptions->{$opt->[0]} eq 'ARRAY') {
-		@{ $self->_varref($opt) } = @{ $loadoptions->{$opt->[0]} };
+		     ref $loadoptions->{$opt->[OPTNAME]} eq 'ARRAY') {
+		@{ $self->_varref($opt) } = @{ $loadoptions->{$opt->[OPTNAME]} };
 	    } elsif (ref $self->_varref($opt) eq 'HASH' &&
-		     ref $loadoptions->{$opt->[0]} eq 'HASH') {
-		%{ $self->_varref($opt) } = %{ $loadoptions->{$opt->[0]} };
+		     ref $loadoptions->{$opt->[OPTNAME]} eq 'HASH') {
+		%{ $self->_varref($opt) } = %{ $loadoptions->{$opt->[OPTNAME]} };
 	    } else {
-		$ {$self->_varref($opt)} = $loadoptions->{$opt->[0]};
+		$ {$self->_varref($opt)} = $loadoptions->{$opt->[OPTNAME]};
 	    }
 	}
     }
@@ -214,11 +226,11 @@ sub save_options {
 	    my %saveoptions;
 	    my $opt;
 	    foreach $opt ($self->_opt_array) {
-		if (!$opt->[3]{'nosave'}) {
+		if (!$opt->[OPTEXTRA]{'nosave'}) {
 		    if (ref($self->_varref($opt)) eq 'SCALAR') {
-			$saveoptions{$opt->[0]} = $ {$self->_varref($opt)}
+			$saveoptions{$opt->[OPTNAME]} = $ {$self->_varref($opt)}
 		    } elsif (ref($self->_varref($opt)) =~ /^(HASH|ARRAY)$/) {
-			$saveoptions{$opt->[0]} = $self->_varref($opt);
+			$saveoptions{$opt->[OPTNAME]} = $self->_varref($opt);
 		    } 
 		}
 	    }
@@ -246,11 +258,11 @@ sub get_options {
     my %getopt;
     my $opt;
     foreach $opt ($self->_opt_array) {
-	$getopt{_getopt_long_string($opt->[0], $opt->[1])} =
+	$getopt{_getopt_long_string($opt->[OPTNAME], $opt->[OPTTYPE])} =
 	  $self->_varref($opt);
 	# process aliases
-	foreach (@{$opt->[3]{'alias'}}) {
-	    $getopt{_getopt_long_string($_, $opt->[1])} =
+	foreach (@{$opt->[OPTEXTRA]{'alias'}}) {
+	    $getopt{_getopt_long_string($_, $opt->[OPTTYPE])} =
 	      $self->_varref($opt);
 	}
     }
@@ -321,11 +333,11 @@ sub usage {
  	$usage .= join(', ',
  		       sort { length $a <=> length $b }
  		       map { _getopt_long_dash($_) }
- 		       map { ($opt->[1] eq '!' ? "[no]" : "") . $_ }
-		       ($opt->[0], @{$opt->[3]{'alias'}}));
+ 		       map { ($opt->[OPTTYPE] eq '!' ? "[no]" : "") . $_ }
+		       ($opt->[OPTNAME], @{$opt->[OPTEXTRA]{'alias'}}));
 	$usage .= "\t";
-	$usage .= $opt->[3]{'help'}                if $opt->[3]{'help'};
-	$usage .= " (default: " . $opt->[2] . ") " if $opt->[2];
+	$usage .= $opt->[OPTEXTRA]{'help'}              if $opt->[OPTEXTRA]{'help'};
+	$usage .= " (default: " . $opt->[DEFVAL] . ") " if $opt->[DEFVAL];
 	$usage .= "\n";
     }
     $usage;
@@ -335,8 +347,8 @@ sub process_options {
     my($self, $former, $fromgui) = @_;
     my $options = $self->{'options'};
     foreach ($self->_opt_array) {
-	my $opt = $_->[0];
-	if ($_->[3]{'callback'}) {
+	my $opt = $_->[OPTNAME];
+	if ($_->[OPTEXTRA]{'callback'}) {
 	    # no warnings here ... it would be too complicated to catch
 	    # all undefined values
 	    my $old_w = $^W;
@@ -346,14 +358,14 @@ sub process_options {
 		  && (!exists $former->{$opt}
 		      || $ {$self->_varref($_)} eq $former->{$opt}))) {
 		local($^W) = $old_w; # fall back to original value
-		&{$_->[3]{'callback'}};
+		&{$_->[OPTEXTRA]{'callback'}};
 	    }
 	}
-	if ($_->[3]{'strict'}) {
+	if ($_->[OPTEXTRA]{'strict'}) {
 	    # check for valid values (valid are: choices and default value)
 	    my $v = $ {$self->_varref($_)};
-	    my @choices = @{$_->[3]{'choices'}};
-	    push(@choices, $_->[2]) if defined $_->[2];
+	    my @choices = @{$_->[OPTEXTRA]{'choices'}};
+	    push(@choices, $_->[DEFVAL]) if defined $_->[DEFVAL];
 	    if (!grep(/^$v$/, @choices)) {
 		if (defined $former) {
 		    warn "Not allowed: " . $ {$self->_varref($_)}
@@ -388,17 +400,17 @@ sub _number_widget {
     my($self, $frame, $opt) = @_;
     $frame->Scale
       (-orient => 'horizontal',
-       -from => $opt->[3]{'range'}[0],
-       -to => $opt->[3]{'range'}[1],
+       -from => $opt->[OPTEXTRA]{'range'}[0],
+       -to => $opt->[OPTEXTRA]{'range'}[1],
        -showvalue => 1,
-       -resolution => ($opt->[1] =~ /f/ ? 0 : 1),
+       -resolution => ($opt->[OPTTYPE] =~ /f/ ? 0 : 1),
        -variable => $self->_varref($opt)
       );
 }
 
 sub _integer_widget {
     my($self, $frame, $opt) = @_;
-    if (exists $opt->[3]{'range'}) {
+    if (exists $opt->[OPTEXTRA]{'range'}) {
 	$self->_number_widget($frame, $opt);
     } else {
 	$self->_string_widget($frame, $opt);
@@ -407,7 +419,7 @@ sub _integer_widget {
 
 sub _float_widget {
     my($self, $frame, $opt) = @_;
-    if (exists $opt->[3]{'range'}) {
+    if (exists $opt->[OPTEXTRA]{'range'}) {
 	$self->_number_widget($frame, $opt);
     } else {
 	$self->_string_widget($frame, $opt);
@@ -417,9 +429,13 @@ sub _float_widget {
 sub _list_widget {
     my($self, $frame, $opt) = @_;
     require Tk::BrowseEntry;
-    my $w = $frame->BrowseEntry(-variable => $self->_varref($opt));
-    my @optlist = @{$opt->[3]{'choices'}};
-    unshift(@optlist, $opt->[2]) if defined $opt->[2];
+    my %args = (-variable => $self->_varref($opt));
+    if ($opt->[OPTEXTRA]{'strict'}) {
+	$args{-state} = "readonly";
+    }
+    my $w = $frame->BrowseEntry(%args);
+    my @optlist = @{$opt->[OPTEXTRA]{'choices'}};
+    unshift(@optlist, $opt->[DEFVAL]) if defined $opt->[DEFVAL];
     my $o;
     foreach $o (@optlist) {
 	$w->insert("end", $o);
@@ -429,7 +445,7 @@ sub _list_widget {
 
 sub _string_widget {
     my($self, $frame, $opt) = @_;
-    if (exists $opt->[3]{'choices'}) {
+    if (exists $opt->[OPTEXTRA]{'choices'}) {
 	$self->_list_widget($frame, $opt);
     } else {
 	$frame->Entry(-textvariable => $self->_varref($opt));
@@ -437,14 +453,15 @@ sub _string_widget {
 }
 
 sub _filedialog_widget {
-    my($self, $frame, $opt) = @_;
+    my($self, $frame, $opt, %args) = @_;
+    my $subtype = (exists $args{'-subtype'} ? $args{'-subtype'} : 'file');
     my $topframe = $frame->Frame;
     my $e;
-    if (exists $opt->[3]{'choices'}) {
+    if (exists $opt->[OPTEXTRA]{'choices'}) {
 	require Tk::BrowseEntry;
 	$e = $topframe->BrowseEntry(-variable => $self->_varref($opt));
-	my @optlist = @{$opt->[3]{'choices'}};
-	unshift(@optlist, $opt->[2]) if defined $opt->[2];
+	my @optlist = @{$opt->[OPTEXTRA]{'choices'}};
+	unshift(@optlist, $opt->[DEFVAL]) if defined $opt->[DEFVAL];
 	my $o;
 	foreach $o (@optlist) {
 	    $e->insert("end", $o);
@@ -459,11 +476,14 @@ sub _filedialog_widget {
        -command => sub {
 	   require File::Basename;
 	   my($fd, $filedialog);
-	   if ($Tk::VERSION >= 800) {
+	   if ($Tk::VERSION >= 800 && $subtype ne 'dir') {
 	       $fd = 'getOpenFile';
 	   } else {
 	       $fd = 'FileDialog';
-	       eval { require Tk::FileDialog };
+	       eval {
+		   die "nope" if $subtype eq 'dir';
+		   require Tk::FileDialog;
+	       };
 	       if ($@) {
 		   require Tk::FileSelect;
 		   $fd = 'FileSelect';
@@ -494,13 +514,23 @@ sub _filedialog_widget {
 		   $file = $filedialog->Show(-Path => $dir,
 					     -File => $base);
 	       } else {
-		   $file = $filedialog->Show(-directory => $dir);
+		   if ($subtype eq 'dir') {
+		       $file = $filedialog->Show(-directory => $dir,
+						 -verify => [qw(-d)],
+						);
+		   } else {
+		       $file = $filedialog->Show(-directory => $dir);
+		   }
 	       }
 	   } else {
 	       if ($fd eq 'getOpenFile') {
 		   $file = $topframe->getOpenFile(-title => 'Select file');
 	       } else {
-		   $file = $filedialog->Show;
+		   if ($subtype eq 'dir') {
+		       $file = $filedialog->Show(-verify => [qw(-d)]);
+		   } else {
+		       $file = $filedialog->Show;
+		   }
 	       }
 	   }
 	   if ($file) {
@@ -517,19 +547,34 @@ sub _filedialog_widget {
 #   $current_top: title of Notebook page
 #   $optlist: list of options for this Notebook page
 #   $balloon: Balloon widget
+#   $msglist: (optional) list of messages for this Notebook page
 sub _create_page {
-    my($self, $current_page, $optnote, $current_top, $optlist, $balloon) = @_;
+    my($self, $current_page,
+       $optnote, $current_top, $optlist,
+       $balloon, $msglist) = @_;
     $current_page = $optnote->{$current_top} if !defined $current_page;
     my $opt;
     my $row = -1;
+
+    my $msgobj;
+    if (ref $msglist and
+	exists $msglist->{$current_top} and
+	$msglist->{$current_top} ne "") {
+	$row++;
+	$msgobj = $current_page->Label(-text => $msglist->{$current_top},
+				       -justify => "left",
+				       )->grid(-row => $row, -column => 0,
+					       -columnspan => 3);
+    }
+
     foreach $opt (@{$optlist->{$current_top}}) {
 	my $f = $current_page;
 	my $label;
 	my $w;
-	if (exists $opt->[3]{'label'}) {
-	    $label = $opt->[3]{'label'};
+	if (exists $opt->[OPTEXTRA]{'label'}) {
+	    $label = $opt->[OPTEXTRA]{'label'};
 	} else {
-	    $label = $opt->[0];
+	    $label = $opt->[OPTNAME];
 	    if ($label =~ /^(.*)-(.*)$/ && $1 eq $current_top) {
 		$label = $2;
 	    }
@@ -537,43 +582,54 @@ sub _create_page {
 	$row++;
 	my $lw = $f->Label(-text => $label)->grid(-row => $row, -column => 0,
 						  -sticky => 'w');
-	if (exists $opt->[3]{'widget'}) {
+	if (exists $opt->[OPTEXTRA]{'widget'}) {
 	    # own widget
-	    $w = &{$opt->[3]{'widget'}}($self, $f, $opt);
-	} elsif (defined $opt->[1] && $opt->[1] eq '!' or $opt->[1] eq '') {
+	    $w = &{$opt->[OPTEXTRA]{'widget'}}($self, $f, $opt);
+	} elsif (defined $opt->[OPTTYPE] &&
+		 $opt->[OPTTYPE] eq '!' or $opt->[OPTTYPE] eq '') {
 	    $w = $self->_boolean_widget($f, $opt); # XXX _checkmark_
-	} elsif (defined $opt->[1] && $opt->[1] =~ /i/) {
+	} elsif (defined $opt->[OPTTYPE] && $opt->[OPTTYPE] =~ /i/) {
 	    $w = $self->_integer_widget($f, $opt);
-	} elsif (defined $opt->[1] && $opt->[1] =~ /f/) {
+	} elsif (defined $opt->[OPTTYPE] && $opt->[OPTTYPE] =~ /f/) {
 	    $w = $self->_float_widget($f, $opt);
-	} elsif (defined $opt->[1] && $opt->[1] =~ /s/) {
-	    if (defined $opt->[3] && exists $opt->[3]{'subtype'} &&
-		$opt->[3]{'subtype'} eq 'file') {
+	} elsif (defined $opt->[OPTTYPE] && $opt->[OPTTYPE] =~ /s/) {
+	    if (defined $opt->[OPTEXTRA] &&
+		exists $opt->[OPTEXTRA]{'subtype'} &&
+		$opt->[OPTEXTRA]{'subtype'} eq 'file') {
 		$w = $self->_filedialog_widget($f, $opt);
+	    } elsif (defined $opt->[OPTEXTRA] &&
+		     exists $opt->[OPTEXTRA]{'subtype'} &&
+		     $opt->[OPTEXTRA]{'subtype'} eq 'dir') {
+		$w = $self->_filedialog_widget($f, $opt, -subtype => "dir");
 	    } else {
 		$w = $self->_string_widget($f, $opt);
 	    }
 	} else {
-	    warn "Can't generate option editor entry for $opt->[0]";
+	    warn "Can't generate option editor entry for $opt->[OPTNAME]";
 	}
 	if (defined $w) {
 	    $w->grid(-row => $row, -column => 1, -sticky => 'w');
 	}
-	if (exists $opt->[3]{'help'} && defined $balloon) {
-	    $balloon->attach($w, -msg => $opt->[3]{'help'}) if defined $w;
-	    $balloon->attach($lw, -msg => $opt->[3]{'help'}) if defined $lw;
+	if (exists $opt->[OPTEXTRA]{'help'} && defined $balloon) {
+	    $balloon->attach($w, -msg => $opt->[OPTEXTRA]{'help'})
+		if defined $w;
+	    $balloon->attach($lw, -msg => $opt->[OPTEXTRA]{'help'})
+		if defined $lw;
 	}
-	if (exists $opt->[3]{'longhelp'}) {
+	if (exists $opt->[OPTEXTRA]{'longhelp'}) {
 	    $f->Button(-text => '?',
 		       -padx => 1,
 		       -pady => 1,
 		       -command => sub {
-			   my $t = $f->Toplevel(-title => $label);
-			   $t->Label(-text => $opt->[3]{'longhelp'},
+			   my $t = $f->Toplevel
+			       (-title => $self->{_string}{"helpfor"}
+				. " $label");
+			   $t->Label(-text => $opt->[OPTEXTRA]{'longhelp'},
 				     -justify => 'left')->pack;
 			   $t->Button(-text => 'OK',
 				      -command => sub { $t->destroy }
 				     )->pack;
+			   $t->Popup(-popover => "cursor");
 		       })->grid(-row => $row, -column => 2, -sticky => 'w');
 	}
     }
@@ -585,11 +641,11 @@ sub _do_undo {
     my($self, $undo_options) = @_;
     my $opt;
     foreach $opt ($self->_opt_array) {
-	next if $opt->[3]{'nogui'};
-	if (exists $undo_options->{$opt->[0]}) {
+	next if $opt->[OPTEXTRA]{'nogui'};
+	if (exists $undo_options->{$opt->[OPTNAME]}) {
 	    my $swap = $ {$self->_varref($opt)};
-	    $ {$self->_varref($opt)} = $undo_options->{$opt->[0]};
-	    $undo_options->{$opt->[0]} = $swap;
+	    $ {$self->_varref($opt)} = $undo_options->{$opt->[OPTNAME]};
+	    $undo_options->{$opt->[OPTNAME]} = $swap;
 	}
     }
 }
@@ -610,14 +666,18 @@ sub option_editor {
 		   'defaults'  => 'Defaults',
 		   'ok'        => 'OK',
 		   'apply'     => 'Apply',
-		   'cancel'    => 'Cancel'};
+		   'cancel'    => 'Cancel',
+		   'helpfor'   => 'Help for:',
+	          };
     }
+    $self->{_string} = $string;
+
     # store old values for undo
     my %undo_options;
     my $opt;
     foreach $opt ($self->_opt_array) {
-	next if $opt->[3]{'nogui'};
-	$undo_options{$opt->[0]} = $ {$self->_varref($opt)};
+	next if $opt->[OPTEXTRA]{'nogui'};
+	$undo_options{$opt->[OPTNAME]} = $ {$self->_varref($opt)};
     }
 
     require Tk;
@@ -655,25 +715,28 @@ sub option_editor {
     }
 
     my $optlist = {};
+    my $msglist = {};
     my $current_top;
     if ($dont_use_notebook) {
 	$current_top = $string->{'optedit'};
 	foreach $opt ($self->_opt_array) {
 	    push(@{$optlist->{$current_top}}, $opt)
-	      if !$opt->[3]{'nogui'};
+	      if !$opt->[OPTEXTRA]{'nogui'};
 	}
+	# XXX message missing
 	$self->_create_page($opt_notebook, undef, $current_top,
 			    $optlist, $balloon);
     } else {
 	my @opttable = @{$self->{'opttable'}};
 	unshift(@opttable, $string->{'optedit'})
-	  if ref $opttable[0] eq 'ARRAY'; # put head
+	  if ref $opttable[OPTNAME] eq 'ARRAY'; # put head
 	foreach $opt (@opttable) {
 	    if (ref $opt ne 'ARRAY') {
 		my $label = $opt;
 		$current_top = lc($label);
 		my $c = $current_top;
 		$optlist->{$c} = [];
+		$msglist->{$c} = "";
 		$opt_notebook->add($c,
 				   -label => $label,
 				   -anchor => 'w',
@@ -682,11 +745,13 @@ sub option_editor {
 				       $self->_create_page
 					 ($_[0],
 					  $opt_notebook, $c,
-					  $optlist, $balloon);
+					  $optlist, $balloon, $msglist);
                                    });
+            } elsif ($opt->[OPTNAME] eq '') {
+		$msglist->{$current_top} = $opt->[DEFVAL];
 	    } else {
-		push(@{$optlist->{$current_top}}, $opt)
-		  if !$opt->[3]{'nogui'};
+		push @{$optlist->{$current_top}}, $opt
+		  if !$opt->[OPTEXTRA]{'nogui'};
 	    }
 	}
     }
@@ -896,7 +961,7 @@ or B<-opttable> are mandatory.
 
 The arguments for B<new> are:
 
-=over 8
+=over 4
 
 =item -getopt
 
@@ -913,112 +978,38 @@ Example:
 
 =item -opttable
 
-B<-opttable> provides a more powerful interface. The options are stored
-in variables named I<$opt_XXX> or in a hash when B<-options> is given (see
-below). B<-opttable> should be a reference to an array containing
-all options. Elements of this array may
-be strings, which indicate the beginning of a new group, or array references
-describing the options. The first element of this array is the name of
-the option, the second is the type (C<=s> for string, C<=i> for integer,
+B<-opttable> provides a more powerful interface. The options are
+stored in variables named I<$opt_XXX> or in a hash when B<-options> is
+given (see below). B<-opttable> should be a reference to an array
+containing all options. Elements of this array may be strings, which
+indicate the beginning of a new group, or array references describing
+the options. The first element of this array is the name of the
+option, the second is the type (C<=s> for string, C<=i> for integer,
 C<!> for boolean, C<=f> for float etc., see L<Getopt::Long>) for a
-detailed list. The third element is optional and contains
-the default value (otherwise the default is undefined). Further
-elements are optional too and describes more attributes. The attributes
-have to be key-value pairs with following keys:
+detailed list. The third element is optional and contains the default
+value (otherwise the default is undefined). Further elements are
+optional too and describe more attributes. For a complete list of
+these attributes refer to L<"OPTTABLE ARGUMENTS">.
 
-=over 12
+If an option has no name, then the third element in the description
+array will be used as an global message for the current option page.
+This message can be multi-line.
+Example:
+    ['', '', 'This is an explanation for this option group.']
 
-=item alias
-
-An array of aliases also accepted by F<Getopt::Long>.
-
-=item label
-
-A label to be displayed in the GUI instead of the option name.
-
-=item help
-
-A short help string used by B<usage> and the Balloon help facility in
-B<option_editor>.
-
-=item longhelp
-
-A long help string used by B<option_editor>.
-
-=item choices
-
-An array of additional choices for the option editor.
-
-=item range
-
-An array with the beginning and end of a range for an integer or float value.
-
-=item strict
-
-Must be used with B<choices> or B<range>. When set to true, options have to
-match either the choices or the range.
-
-=item subtype
-
-Current the only permitted subtype is I<file> to be used with string
-options. The GUI interface will pop up a file dialog for this option.
-
-=item var
-
-Use variable instead of I<$options-E<gt>{optname}> or I<$opt_optname>
-to store the value.
-
-=item nogui
-
-This option will not have an entry in the GUI.
-
-=item widget
-
-This should be a reference to a subroutine for creating an own widget.
-Folowing arguments will be passed to this subroutine:
-a reference to the F<Tk::Getopt> object, Frame object, options entry.
-The subroutine should create a widget in the frame (packing is not
-necessary!) and should return a reference to the created widget.
-
-=back
-
-Here is an example for this rather complicated argument:
+Here is an example for a simple opttable:
 
     @opttable =
-        ('Misc',   # Head of first group
-	 ['debug', # name of the option (--debug)
-          '!',     # type boolean, accept --nodebug
-          0,       # default is 0 (false)
-          callback => sub { $^W = 1
-                                if $options->{'debug'}; }
-          # additional attribute: callback to be called if
-          # you set or change the value
-          ],
-         ['age',
-          '=i',    # option accepts integer value
-          18,
-          strict => 1, # value must be in range
-          range => [0, 100], # allowed range
-          alias => ['year', 'years'] # possible aliases
-          ],
-	 'External', # Head of second group
-         ['browser',
-          '=s',    # option accepts string value
-          'tkweb',
-          choices => ['mosaic', 'netscape',
-                      'lynx', 'chimera'],
-          # choices for the list widget in the GUI
-          label => 'WWW browser program'
-          # label for the GUI instead of 'browser'
-          ],
-         ['foo',
-          '=f',    # option accepts float value
-          undef,   # no default value
-          help => 'This is a short help',
-          # help string for usage() and the help balloon
-          longhelp => 'And this is a slightly longer help'
-          # longer help displayed in the GUI's help window
-          ]);
+        ('First section',
+	 ['', '', 'Section description'],
+	 ['debug', '!',  0],
+         ['age',   '=i', 18],
+
+	 'Second section',
+	 ['', '', 'Description for 2nd section'],
+         ['browser', '=s', 'tkweb'],
+         ['foo',     '=f', undef],
+        );
     new Tk::Getopt(-opttable => \@opttable,
                    -options => \%options);
 
@@ -1072,8 +1063,8 @@ two alternatives:
 
 =item *
 
-Use the B<-opttable> variant of C<new> and mark all non-GUI options with
-B<nogui>, e.g.
+Use the B<-opttable> variant of the C<new> constructor and mark all
+non-GUI options with B<nogui>, e.g.
 
     new Tk::Getopt(-opttable => ['not-in-gui', '!', undef,
                                  nogui => 1], ...)
@@ -1163,7 +1154,7 @@ Note: this method returns immediately to the calling program.
 
 Buttons in the option editor window:
 
-=over 8
+=over 4
 
 =item OK
 
@@ -1191,7 +1182,7 @@ in C<new>.
 
 The option types are translated to following widgets:
 
-=over 8
+=over 4
 
 =item Boolean
 
@@ -1210,6 +1201,106 @@ B<FileDialog> if B<subtype> is set to B<file>.
 =back
 
 =back
+
+=head1 OPTTABLE ARGUMENTS
+
+Additional attributes in an option description have to be key-value
+pairs with following keys:
+
+=over
+
+=item alias
+
+An array of aliases also accepted by F<Getopt::Long>.
+
+=item label
+
+A label to be displayed in the GUI instead of the option name.
+
+=item help
+
+A short help string used by B<usage> and the Balloon help facility in
+B<option_editor>.
+
+=item longhelp
+
+A long help string used by B<option_editor>.
+
+=item choices
+
+An array of additional choices for the option editor.
+
+=item range
+
+An array with the beginning and end of a range for an integer or float value.
+
+=item strict
+
+Must be used with B<choices> or B<range>. When set to true, options have to
+match either the choices or the range.
+
+=item subtype
+
+The only permitted subtypes are I<file> and I<dir> to be used with
+string options. The GUI interface will pop up a file dialog for this
+option (either for selecting files or directories).
+
+=item var
+
+Use variable instead of I<$options-E<gt>{optname}> or I<$opt_optname>
+to store the value.
+
+=item nogui
+
+This option will not have an entry in the GUI.
+
+=item widget
+
+This should be a reference to a subroutine for creating an own widget.
+Folowing arguments will be passed to this subroutine:
+a reference to the F<Tk::Getopt> object, Frame object, options entry.
+The subroutine should create a widget in the frame (packing is not
+necessary!) and should return a reference to the created widget.
+
+=back
+
+Here is an example for using a complex opttable description:
+
+    @opttable =
+        ('Misc',   # Head of first group
+	 ['debug', # name of the option (--debug)
+          '!',     # type boolean, accept --nodebug
+          0,       # default is 0 (false)
+          callback => sub { $^W = 1
+                                if $options->{'debug'}; }
+          # additional attribute: callback to be called if
+          # you set or change the value
+          ],
+         ['age',
+          '=i',    # option accepts integer value
+          18,
+          strict => 1, # value must be in range
+          range => [0, 100], # allowed range
+          alias => ['year', 'years'] # possible aliases
+          ],
+	 'External', # Head of second group
+         ['browser',
+          '=s',    # option accepts string value
+          'tkweb',
+          choices => ['mosaic', 'netscape',
+                      'lynx', 'chimera'],
+          # choices for the list widget in the GUI
+          label => 'WWW browser program'
+          # label for the GUI instead of 'browser'
+          ],
+         ['foo',
+          '=f',    # option accepts float value
+          undef,   # no default value
+          help => 'This is a short help',
+          # help string for usage() and the help balloon
+          longhelp => 'And this is a slightly longer help'
+          # longer help displayed in the GUI's help window
+          ]);
 
 =head1 REQUIREMENTS
 
