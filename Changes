@@ -1,5 +1,12 @@
 Revision history for Perl extension Tk::Getopt.
 
+0.41
+	- integer and float entries are validated
+	- file: subtype dir possible
+	- option_editor: new arguments buttons and pack
+	- internal change: using constants where possible
+	- pod cleanup
+
 0.38  Tue Aug 31 12:01:35 CEST 1999
 	- bugfix in filedialog widget
 
