@@ -1,0 +1,81 @@
+=head1 NAME
+
+Tk::Getopt - User configuration window for Tk with interface to Getopt::Long
+
+=head1 SYNOPSIS
+
+    use Tk::Getopt;
+    @opttable = (['opt1', '=s', 'default'], ['opt2', '!', 1], ...);
+    $opt = new Tk::Getopt(-opttable => \@opttable,
+                          -options => \%options,
+			  -filename => "$ENV{HOME}/.options");
+    $opt->load_options;
+    $opt->get_options;
+    $opt->process_options;
+    print $options->{'opt1'}, $options->{'opt2'} ...;
+    ...
+    $top = new MainWindow;
+    $opt->option_editor($top);
+
+or using a F<Getopt::Long>-like interface
+
+    $opt = new Tk::Getopt(-getopt => ['help'   => \$HELP,
+				      'file:s' => \$FILE,
+				      'foo!'   => \$FOO,
+				      'num:i'  => \$NO,
+				     ]);
+
+or an alternative F<Getopt::Long> interface
+
+    %optctl = ('foo' => \$foo,
+	       'bar' => \$bar);
+    $opt = new Tk::Getopt(-getopt => [\%optctl, "foo!", "bar=s"]);
+
+=head1 DESCRIPTION
+
+F<Tk::Getopt> provides an interface to access command line options via
+F<Getopt::Long> and editing with a graphical user interface via a Tk window.
+
+Unlike F<Getopt::Long>, this package uses a object oriented interface, so you
+have to create a new F<Tk::Getopt> object with B<new>. Unlike other
+packages in the Tk hierarchy, this package does not define a Tk widget. The
+graphical interface is calles by the method B<option_editor>.
+
+After creating an object with B<new>, you can parse command line options
+by calling B<get_options>. This method calls itself
+B<Getopt::Long::GetOptions>.
+
+=head1 REQUIREMENTS
+
+You need at least:
+
+=over 4
+
+=item *
+
+perl5.004 (perl5.003 near 5.004 may work too, e.g perl5.003_26)
+
+=item *
+
+Tk400.202 (better: Tk400.203) (only if you want the GUI)
+
+=item *
+
+Data-Dumper-2.07 (only if you want to save options)
+
+=back
+
+=head1 INSTALLATION
+
+	perl Makefile.PL
+	make
+	make test
+	make install
+
+=head1 AUTHOR
+
+Slaven Rezic <eserte@cs.tu-berlin.de>
+
+This package is free software; you can redistribute it and/or
+modify it under the same terms as Perl itself.
+

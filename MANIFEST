@@ -1,0 +1,12 @@
+Changes
+MANIFEST
+Makefile.PL
+Getopt.pm
+README
+t/getopt.t
+t/getopt2.t
+t/gui.t
+t/gui2.t
+t/linkage2.t
+t/opttest
+t/simple.t
