@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.32 1999/12/20 21:26:43 eserte Exp $
+# $Id: Getopt.pm,v 1.33 2000/08/23 23:28:05 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998,1999 Slaven Rezic. All rights reserved.
@@ -23,7 +23,7 @@ use constant OPTTYPE  => 1;
 use constant DEFVAL   => 2;
 use constant OPTEXTRA => 3;
 
-$VERSION = '0.40';
+$VERSION = '0.41';
 
 $DEBUG = 0;
 $x11_pass_through = 0;
@@ -130,7 +130,7 @@ sub new {
     $self->{'filename'} = delete $a{'-filename'};
     $self->{'nosafe'}   = delete $a{'-nosafe'};
 
-    die "Extra arguments: " . join(" ", %a) if %a;
+    die "Unrecognized arguments: " . join(" ", %a) if %a;
 
     bless $self, $pkg;
 }
@@ -654,7 +654,9 @@ sub option_editor {
     my($self, $top, %a) = @_;
     my $callback  = delete $a{'-callback'};
     my $nosave    = delete $a{'-nosave'};
+    my $buttons   = delete $a{'-buttons'};
     my $toplevel  = delete $a{'-toplevel'} || 'Toplevel';
+    my $pack      = delete $a{'-pack'};
     my $use_statusbar = delete $a{'-statusbar'};
     my $wait      = delete $a{'-wait'};
     my $string    = delete $a{'-string'};
@@ -698,8 +700,9 @@ sub option_editor {
     eval { require Tk::Balloon };
     $dont_use_balloon = 1 if $@;
 
-    my $opt_editor = eval '$top->' . $toplevel . '(%a)';
-    die $@ if $@;
+    my $cmd = '$top->' . $toplevel . '(%a)';
+    my $opt_editor = eval $cmd;
+    die "$@ while evaling $cmd" if $@;
     eval { $opt_editor->configure(-title => $string->{optedit}) };
     my $opt_notebook = ($dont_use_notebook ?
 			$opt_editor->Frame :
@@ -767,7 +770,7 @@ sub option_editor {
 	   my $nenner = int(($f->Width-2*$bw)/$f->{Sw});
 	   return if (!$nenner);
 	   my $rows = @{$f->{Slaves}}/$nenner;
-	   return if (!$rows);
+	   return if (!$rows or !int($rows));
 	   if ($rows/int($rows) > 0) {
 	       $rows = int($rows)+1;
 	   }
@@ -782,74 +785,107 @@ sub option_editor {
 		 }
 	     });
     my @tiler_b;
-    my $ok_button
-      = $f->Button(-text => $string->{'ok'},
-		   -underline => 0,
-		   -command => sub {
-		       $self->process_options(\%undo_options, 1);
-		       if (!$dont_use_notebook) {
-			   $self->{'raised'} = $opt_notebook->raised();
-		       }
-		       $opt_editor->destroy;
-		   }
-		  );
-    push @tiler_b, $ok_button;
-    my $apply_button
-      = $f->Button(-text => $string->{'apply'},
-		   -command => sub {
-		       $self->process_options(\%undo_options, 1);
-		   }
-		  );
-    push @tiler_b, $apply_button;
-    my $cancel_button
-      = $f->Button(-text => $string->{'cancel'},
-		   -command => sub {
-		       $self->_do_undo(\%undo_options);
-		       if (!$dont_use_notebook) {
-			   $self->{'raised'} = $opt_notebook->raised();
-		       }
-		       $opt_editor->destroy;
-		   }
-		  );
-    push @tiler_b, $cancel_button;
-    my $grid_col = 0;
-    my $undo_button = $f->Button(-text => $string->{'undo'},
-	       -command => sub {
-		   $self->_do_undo(\%undo_options);
-	       }
-	      );
-    push @tiler_b, $undo_button;
-    if ($self->{'filename'}) {
-	my $lastsaved_button = $f->Button(-text => $string->{'lastsaved'},
-		   -command => sub {
-			$top->Busy;
-			$self->load_options;
-			$top->Unbusy;
-		    }
-		  );
-	push @tiler_b, $lastsaved_button;
 
-	if (!$nosave) {
-	    my $sb;
-	    $sb = $f->Button(-text => $string->{'save'},
+    my %allowed_button;
+    if ($buttons) {
+	if (ref $buttons ne 'ARRAY') {
+	    undef $buttons;
+	} else {
+	    %allowed_button = map { ($_ => 1) } @$buttons;
+        }
+    }
+
+    my($ok_button, $apply_button, $cancel_button, $undo_button,
+       $lastsaved_button, $save_button, $def_button);
+
+    if (!$buttons || $allowed_button{'ok'}) {
+	$ok_button
+	    = $f->Button(-text => $string->{'ok'},
+			 -underline => 0,
+			 -command => sub {
+			     $self->process_options(\%undo_options, 1);
+                             if (!$dont_use_notebook) {
+                                 $self->{'raised'} = $opt_notebook->raised();
+                             }
+                             $opt_editor->destroy;
+                         }
+                        );
+        push @tiler_b, $ok_button;
+    }
+
+    if (!$buttons || $allowed_button{'apply'}) {
+	$apply_button
+	    = $f->Button(-text => $string->{'apply'},
+			 -command => sub {
+			     $self->process_options(\%undo_options, 1);
+			 }
+			);
+	push @tiler_b, $apply_button;
+    }
+
+    if (!$buttons || $allowed_button{'cancel'}) {
+	$cancel_button
+	    = $f->Button(-text => $string->{'cancel'},
+			 -command => sub {
+			     $self->_do_undo(\%undo_options);
+			     if (!$dont_use_notebook) {
+				 $self->{'raised'} = $opt_notebook->raised();
+			     }
+			     $opt_editor->destroy;
+			 }
+			);
+	push @tiler_b, $cancel_button;
+    }
+
+    if (!$buttons || $allowed_button{'undo'}) {
+	$undo_button
+	    = $f->Button(-text => $string->{'undo'},
+			 -command => sub {
+			     $self->_do_undo(\%undo_options);
+			 }
+			);
+	push @tiler_b, $undo_button;
+    }
+
+    if ($self->{'filename'}) {
+	if (!$buttons || $allowed_button{'lastsaved'}) {
+	    $lastsaved_button
+		= $f->Button(-text => $string->{'lastsaved'},
+			     -command => sub {
+				 $top->Busy;
+				 $self->load_options;
+				 $top->Unbusy;
+			     }
+			    );
+	    push @tiler_b, $lastsaved_button;
+	}
+
+	if (!$nosave && (!$buttons || $allowed_button{'save'})) {
+	    $save_button
+		= $f->Button(-text => $string->{'save'},
 			     -command => sub {
 				 $top->Busy;
 				 eval { $self->save_options };
 				 if ($@ =~ /No Data::Dumper/) {
-				     $sb->configure(-state => 'disabled');
+				     $save_button->configure(-state => 'disabled');
 				 }
 				 $top->Unbusy;
 			     }
 			    );
-	    push @tiler_b, $sb;
+	    push @tiler_b, $save_button;
 	}
     }
-    my $def_button = $f->Button(-text => $string->{'defaults'},
-				-command => sub {
-				    $self->set_defaults;
-				}
-	      );
-    push @tiler_b, $def_button;
+
+    if (!$buttons || $allowed_button{'defaults'}) {
+	$def_button
+	    = $f->Button(-text => $string->{'defaults'},
+			 -command => sub {
+			     $self->set_defaults;
+			 }
+			);
+	push @tiler_b, $def_button;
+    }
+
     $f->Manage(@tiler_b);
 
     &$callback($self, $opt_editor) if $callback;
@@ -870,8 +906,12 @@ sub option_editor {
 	$opt_editor->Popup;
     }
     if ($wait) {
+	if ($pack) {
+	    $opt_editor->pack(@$pack);
+	}
 	my $wait_var = 1;
 	$opt_editor->OnDestroy(sub { undef $wait_var });
+	$opt_editor->waitVisibility;
 	$opt_editor->grab;
 	$opt_editor->waitVariable(\$wait_var);
     }
@@ -1121,11 +1161,30 @@ a reference to the option editor window.
 
 Disable saving of options.
 
+=item -buttons
+
+Specify, which buttons should be drawn. It is advisable to draw at
+least the OK and Cancel buttons. The default set looks like this:
+
+    -buttons => [qw/ok apply cancel undo lastsaved save defaults/]
+
 =item -toplevel
 
-Use another widget instead of B<Toplevel> for embedding the option
-editor, e.g. C<Frame> to embed the editor into another toplevel widget (do not
-forget to pack the frame!).
+Use another widget class instead of B<Toplevel> for embedding the
+option editor, e.g. C<Frame> to embed the editor into another toplevel
+widget (do not forget to pack the frame!). See also the C<-pack>
+option below.
+
+=item -pack
+
+If using C<-toplevel> with a non-Toplevel widget (e.g. Frame) and
+using the C<-wait> option, then packing have to be done through the
+C<-pack> option. The argument to this option is a array reference of
+pack options, e.g.
+
+    $opt->option_editor(-toplevel => "Frame",
+                        -wait => 1,
+                        -pack => [-fill => "both", -expand => 1]);
 
 =item -statusbar
 
@@ -1135,7 +1194,7 @@ Use an additional status bar for help messages.
 
 Change button labels and title. This argument should be a hash reference
 with following keys: C<optedit>, C<undo>, C<lastsaved>, C<save>, C<defaults>,
-C<ok>, C<cancel>.
+C<ok>, C<cancel>, C<helpfor>.
 
 =item -wait
 
