@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.29 1999/06/26 18:23:03 eserte Exp $
+# $Id: Getopt.pm,v 1.30 1999/08/06 23:32:02 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998,1999 Slaven Rezic. All rights reserved.
@@ -101,7 +101,7 @@ sub new {
 		    };
 		    $varref = \$self->{'options'}{$o};
 		}
-		if (ref $varref eq 'SCALAR') {
+		if (ref($varref) =~ /^(SCALAR|HASH|ARRAY)$/) {
 		    $a{'var'} = $varref;
 		} else {
 		    die "Can't handle variable reference of type "
@@ -187,6 +187,12 @@ sub load_options {
 	if (exists $loadoptions->{$opt->[0]}) {
 	    if (ref $self->_varref($opt) eq 'CODE') {
 		&{$self->_varref($opt)} if $loadoptions->{$opt->[0]};
+	    } elsif (ref $self->_varref($opt) eq 'ARRAY' &&
+		     ref $loadoptions->{$opt->[0]} eq 'ARRAY') {
+		@{ $self->_varref($opt) } = @{ $loadoptions->{$opt->[0]} };
+	    } elsif (ref $self->_varref($opt) eq 'HASH' &&
+		     ref $loadoptions->{$opt->[0]} eq 'HASH') {
+		%{ $self->_varref($opt) } = %{ $loadoptions->{$opt->[0]} };
 	    } else {
 		$ {$self->_varref($opt)} = $loadoptions->{$opt->[0]};
 	    }
@@ -208,8 +214,13 @@ sub save_options {
 	    my %saveoptions;
 	    my $opt;
 	    foreach $opt ($self->_opt_array) {
-		$saveoptions{$opt->[0]} = $ {$self->_varref($opt)}
-		  if !$opt->[3]{'nosave'} && ref $self->_varref($opt) eq 'SCALAR';
+		if (!$opt->[3]{'nosave'}) {
+		    if (ref($self->_varref($opt)) eq 'SCALAR') {
+			$saveoptions{$opt->[0]} = $ {$self->_varref($opt)}
+		    } elsif (ref($self->_varref($opt)) =~ /^(HASH|ARRAY)$/) {
+			$saveoptions{$opt->[0]} = $self->_varref($opt);
+		    } 
+		}
 	    }
 	    if (Data::Dumper->can('Dumpxs')) {
 		# use faster version of Dump
