@@ -2,6 +2,8 @@
 
 Tk::Getopt - User configuration window for Tk with interface to Getopt::Long
 
+=for category Derived Widgets
+
 =head1 SYNOPSIS
 
     use Tk::Getopt;
@@ -17,7 +19,7 @@ Tk::Getopt - User configuration window for Tk with interface to Getopt::Long
     $top = new MainWindow;
     $opt->option_editor($top);
 
-or using a F<Getopt::Long>-like interface
+or using a L<Getopt::Long|Getopt::Long>-like interface
 
     $opt = new Tk::Getopt(-getopt => ['help'   => \$HELP,
 				      'file:s' => \$FILE,
@@ -34,7 +36,7 @@ or an alternative F<Getopt::Long> interface
 =head1 DESCRIPTION
 
 F<Tk::Getopt> provides an interface to access command line options via
-F<Getopt::Long> and editing with a graphical user interface via a Tk window.
+L<Getopt::Long|Getopt::Long> and editing with a graphical user interface via a Tk window.
 
 Unlike F<Getopt::Long>, this package uses a object oriented interface, so you
 have to create a new F<Tk::Getopt> object with B<new>. Unlike other
@@ -61,7 +63,8 @@ Tk400.202 (better: Tk400.203) (only if you want the GUI)
 
 =item *
 
-Data-Dumper-2.07 (only if you want to save options)
+Data-Dumper-2.07 (only if you want to save options and it's anyway
+standard in perl5.005)
 
 =back
 
@@ -79,3 +82,4 @@ Slaven Rezic <eserte@cs.tu-berlin.de>
 This package is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
 
+=cut
