@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.39 2001/02/08 00:52:25 eserte Exp $
+# $Id: Getopt.pm,v 1.40 2001/04/05 07:37:54 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998,1999,2000 Slaven Rezic. All rights reserved.
@@ -16,14 +16,15 @@ package Tk::Getopt;
 require 5.003;
 use strict;
 use vars qw($loadoptions $VERSION $x11_pass_through
-	    $CHECKMARK_OFF $CHECKMARK_ON $FILE_IMAGE $DEBUG
+	    $CHECKMARK_OFF $CHECKMARK_ON
+	    $FILE_IMAGE $CURR_GEOMETRY_IMAGE $DEBUG
 	   );
 use constant OPTNAME  => 0;
 use constant OPTTYPE  => 1;
 use constant DEFVAL   => 2;
 use constant OPTEXTRA => 3;
 
-$VERSION = '0.43';
+$VERSION = '0.44';
 
 $DEBUG = 0;
 $x11_pass_through = 0;
@@ -587,8 +588,7 @@ sub _filedialog_widget {
     $e->pack(-side => 'left');
 
     my $b = $topframe->Button
-      (#-text => 'Browse...',
-       _get_browse_args($topframe),
+      (_get_browse_args($topframe),
        -command => sub {
 	   require File::Basename;
 	   my($fd, $filedialog);
@@ -666,6 +666,73 @@ sub _filedialog_widget {
     $topframe;
 }
 
+sub _geometry_widget {
+    my($self, $frame, $opt) = @_;
+    my($topframe, $e) = $self->_fix_layout
+	($frame,
+	 'Entry',
+	 (defined $opt->[OPTEXTRA]{'length'}
+	  ? (-width => $opt->[OPTEXTRA]{'length'}) : ()),
+	 -textvariable => $self->_varref($opt));
+    $topframe->Button(_get_curr_geometry_args($topframe),
+		      -command => sub {
+			  my $mw = $frame->MainWindow;
+			  $e->delete(0, "end");
+			  $e->insert("end", $mw->geometry);
+		      },
+		     )->pack(-side => "left");
+    $topframe;
+}
+
+sub _color_widget {
+    return shift->_string_widget(@_);
+
+    # XXX funktioniert leider nicht...
+    my($self, $frame, $opt) = @_;
+    my($topframe, $e) = $self->_fix_layout
+	($frame,
+	 'Entry',
+	 (defined $opt->[OPTEXTRA]{'length'}
+	  ? (-width => $opt->[OPTEXTRA]{'length'}) : ()),
+	 -textvariable => $self->_varref($opt));
+    if ($frame->can("chooseColor")) {
+	$topframe->Button(-text => "...",
+			  -padx => 0, -pady => 0,
+			  -command => sub {
+			      my $color = $frame->chooseColor;
+#				  (-initialcolor => $e->get);
+			      return unless defined $color;
+			      $e->delete(0, "end");
+			      $e->insert("end", $color);
+			  },
+			 )->pack(-side => "left");
+    }
+    $topframe;
+}
+
+sub _font_widget {
+    my($self, $frame, $opt) = @_;
+    my($topframe, $e) = $self->_fix_layout
+	($frame,
+	 'Entry',
+	 (defined $opt->[OPTEXTRA]{'length'}
+	  ? (-width => $opt->[OPTEXTRA]{'length'}) : ()),
+	 -textvariable => $self->_varref($opt));
+    if (eval {require Tk::Font; require Tk::FontDialog; 1}) {
+	$topframe->Button(-text => "...",
+			  -padx => 0, -pady => 0,
+			  -command => sub {
+			      my $font = $frame->FontDialog
+				  (-initfont => $e->get)->Show;
+			      return unless defined $font;
+			      $e->delete(0, "end");
+			      $e->insert("end", $font->Pattern);
+			  },
+			 )->pack(-side => "left");
+    }
+    $topframe;
+}
+
 # Creates one page of the Notebook widget
 # Arguments:
 #   $current_page: Frame for drawing
@@ -733,14 +800,19 @@ sub _create_page {
 	} elsif (defined $opt->[OPTTYPE] && $opt->[OPTTYPE] =~ /f/) {
 	    $w = $self->_float_widget($f, $opt);
 	} elsif (defined $opt->[OPTTYPE] && $opt->[OPTTYPE] =~ /s/) {
-	    if (defined $opt->[OPTEXTRA] &&
-		exists $opt->[OPTEXTRA]{'subtype'} &&
-		$opt->[OPTEXTRA]{'subtype'} eq 'file') {
+	    my $subtype = (defined $opt->[OPTEXTRA] &&
+			   exists $opt->[OPTEXTRA]{'subtype'} ?
+			   $opt->[OPTEXTRA]{'subtype'} : "");
+	    if ($subtype eq 'file') {
 		$w = $self->_filedialog_widget($f, $opt);
-	    } elsif (defined $opt->[OPTEXTRA] &&
-		     exists $opt->[OPTEXTRA]{'subtype'} &&
-		     $opt->[OPTEXTRA]{'subtype'} eq 'dir') {
+	    } elsif ($subtype eq 'dir') {
 		$w = $self->_filedialog_widget($f, $opt, -subtype => "dir");
+	    } elsif ($subtype eq 'geometry') {
+		$w = $self->_geometry_widget($f, $opt);
+	    } elsif ($subtype eq 'color') {
+		$w = $self->_color_widget($f, $opt);
+	    } elsif ($subtype eq 'font') {
+		$w = $self->_font_widget($f, $opt);
 	    } else {
 		$w = $self->_string_widget($f, $opt);
 	    }
@@ -1111,6 +1183,20 @@ sub _get_browse_args {
 	(-image => $FILE_IMAGE);
     } else {
 	(-text => "Browse...");
+    }
+}
+
+sub _get_curr_geometry_args {
+    my $w = shift;
+    if (!defined $CURR_GEOMETRY_IMAGE) {
+	require Tk::Photo;
+	$CURR_GEOMETRY_IMAGE = $w->Photo(-file => Tk->findINC("win.xbm"));
+	$CURR_GEOMETRY_IMAGE = 0 if (!$CURR_GEOMETRY_IMAGE);
+    }
+    if ($CURR_GEOMETRY_IMAGE) {
+	(-image => $CURR_GEOMETRY_IMAGE);
+    } else {
+	(-text => "Geom.");
     }
 }
 
@@ -1500,9 +1586,12 @@ match either the choices or the range.
 
 =item subtype
 
-The only permitted subtypes are I<file> and I<dir> to be used with
-string options. The GUI interface will pop up a file dialog for this
-option (either for selecting files or directories).
+The subtypes are I<file>, I<dir>, I<geometry>, I<font> and I<color>.
+These can be used with string options. For the first two, the GUI
+interface will pop up a file dialog for this option (either for
+selecting files or directories). If the I<geometry> subtype is
+specified, the user can set the current geometry of the main window.
+The I<color> subtype is not yet implemented.
 
 =item var
 
