@@ -1,10 +1,15 @@
 # -*- perl -*-
-print "1..10\n";
+print "1..14\n";
 
 use Tk::Getopt;
 
+$bla  = 1;
+$bla2 = 1;
+$bla3 = 1;
+$bla4 = 0;
+
 @ARGV = qw(--arr 1 --arr 2 --arr 3
-	   --hsh foo=bar --hsh bla=blubber
+	   --hsh foo=bar --hsh bla=blubber --nobla -nobla2
 	   --help --file foo --foo --nobar --num=5 -- file);
 
 %getopt = 
@@ -13,6 +18,10 @@ use Tk::Getopt;
    'file:s' => \$FILE,
    'foo!'   => \$FOO,
    'bar!'   => \$BAR,
+   'bla!'   => \$bla,
+   'bla2!'  => \$bla2,
+   'bla3!'  => \$bla3,
+   'bla4!'  => \$bla4,
    'num:i'  => \$NO,
    'arr=s@' => \@ARR,
    'hsh=s%' => \%HSH,
@@ -72,5 +81,17 @@ print "not " unless ($HSH{"foo"} eq $HSH2{"foo"} &&
 		     $HSH{"bla"} eq $HSH2{"bla"});
 print "ok 10\n";
 
+
+print "not " unless ($bla == 0);
+print "ok 11\n";
+
+print "not " unless ($bla2 == 0);
+print "ok 12\n";
+
+print "not " unless ($bla3 == 1);
+print "ok 13\n";
+
+print "not " unless ($bla4 == 0);
+print "ok 14\n";
 
 unlink $tstfile;
