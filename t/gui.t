@@ -47,6 +47,7 @@ $loaded = 1;
      'help' => 'Background color',
      'length' => 7,
      'maxsize' => 7,
+     'subtype' => 'color',
     }],
    ['fg', '=s', undef,
     {'callback' =>
@@ -57,6 +58,7 @@ $loaded = 1;
      'help' => 'Foreground color',
      'length' => 7,
      'maxsize' => 7,
+     'subtype' => 'color',
     }],
    ['font', '=s', undef,
     {'callback' =>
@@ -64,6 +66,7 @@ $loaded = 1;
 	 $top->optionAdd("*font" => $options->{'font'}, 'userDefault')
 	   if $options->{'font'};
      },
+     'subtype' => 'font',
      'help' => 'Default font'}],
    ['i18nfont', '=s', undef,
     {'callback' =>
@@ -75,7 +78,12 @@ $loaded = 1;
 	     }
 	 }
      },
+     'subtype' => 'font',
      'help' => 'Font used for different encodings'}],
+   ['geometry', '=s', undef,
+    'help' => 'Font used for different encodings',
+    'subtype' => 'geometry',
+   ],
 
    'appearance',
    ['infowin', '!', 1, {'label' => 'Balloon', 'help' => 'Switches balloons on or off'}] ,
