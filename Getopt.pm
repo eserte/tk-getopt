@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.18 1997/11/11 23:20:15 eserte Exp $
+# $Id: Getopt.pm,v 1.19 1997/11/16 21:32:10 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright © 1997 Slaven Rezic. All rights reserved.
@@ -17,7 +17,7 @@ require 5.003;
 use strict;
 use vars qw($loadoptions $VERSION);
 
-$VERSION = '0.33';
+$VERSION = '0.34';
 
 sub new {
     my($pkg, %a) = @_;
@@ -27,6 +27,13 @@ sub new {
 
     if (exists $a{'-opttable'}) {
 	$self->{'opttable'} = delete $a{'-opttable'};
+	foreach (@{$self->{'opttable'}}) {
+	    if ($_->[0] =~ /\|/) { # handle aliases
+		my($opt, @aliases) = split(/\|/, $_->[0]);
+		$_->[0] = $opt;
+		push(@{$_->[3]{'aliases'}}, @aliases);
+	    }
+	}
     } elsif (exists $a{'-getopt'}) {
 	# build opttable from -getopt argument
 	my @optionlist;
@@ -94,7 +101,7 @@ sub new {
     bless $self, $pkg;
 }
 
-# Returns a list with all option names
+# Return a list with all option names
 sub _opt_array {
     my $self = shift;
     my @res;
@@ -104,7 +111,7 @@ sub _opt_array {
     @res;
 }
 
-# Returns a reference to the option variable given by $opt
+# Return a reference to the option variable given by $opt
 sub _varref {
     my($self, $opt) = @_;
     if($opt->[3]{'var'}) {
@@ -233,12 +240,13 @@ sub usage {
 	# The following prints all options as a comma-seperated list
 	# with one or two dashes, depending on the length of the option.
 	# Options are sorted by length.
-	$usage .= join(', ', 
-		       sort { length $a <=> length $b }
-		       map { _getopt_long_dash($_) }
-		       map { ($opt->[1] eq '!' ? "[no]" : "") . $_ }
+ 	$usage .= join(', ', 
+ 		       sort { length $a <=> length $b }
+ 		       map { _getopt_long_dash($_) }
+ 		       map { ($opt->[1] eq '!' ? "[no]" : "") . $_ }
 		       ($opt->[0], @{$opt->[3]{'alias'}}));
-	$usage .= "\t" . $opt->[3]{'help'};
+	$usage .= "\t";
+	$usage .= $opt->[3]{'help'}                if $opt->[3]{'help'};
 	$usage .= " (default: " . $opt->[2] . ") " if $opt->[2];
 	$usage .= "\n";
     }
@@ -459,13 +467,13 @@ sub option_editor {
     my $wait      = delete $a{'-wait'};
     my $string    = delete $a{'-string'};
     if (!defined $string) {
-	$string = {'optedit' => 'Option editor',
-		   'undo' => 'Undo',
+	$string = {'optedit'   => 'Option editor',
+		   'undo'      => 'Undo',
 		   'lastsaved' => 'Last saved',
-		   'save' => 'Save',
-		   'defaults' => 'Defaults',
-		   'ok' => 'OK',
-		   'cancel' => 'Cancel'};
+		   'save'      => 'Save',
+		   'defaults'  => 'Defaults',
+		   'ok'        => 'OK',
+		   'cancel'    => 'Cancel'};
     }
     # store old values for undo
     my %undo_options;
@@ -642,9 +650,10 @@ Tk::Getopt - User configuration window for Tk with interface to Getopt::Long
     $opt = new Tk::Getopt(-opttable => \@opttable,
                           -options => \%options,
 			  -filename => "$ENV{HOME}/.options");
-    $opt->load_options;
-    $opt->get_options;
-    $opt->process_options;
+    $opt->set_defaults;     # set default values
+    $opt->load_options;     # configuration file
+    $opt->get_options;      # command line
+    $opt->process_options;  # process callbacks, check restrictions ...
     print $options->{'opt1'}, $options->{'opt2'} ...;
     ...
     $top = new MainWindow;
@@ -839,7 +848,7 @@ options.
 
 =item B<set_defaults>
 
-Set default values. This only applies if the B<-opttable> variant is used.
+Sets default values. This only applies if the B<-opttable> variant is used.
 
 =item B<load_options(>I<filename>B<)>
 
@@ -1002,6 +1011,7 @@ B<Scale>, if B<range> is set, otherwise either B<BrowseEntry> or B<Entry>
 =item String
 
 B<BrowseEntry> if B<choices> is set, otherwise B<entry> (B<_string_widget>).
+B<FileDialog> if B<subtype> is set to B<file>.
 
 =back
 
@@ -1029,8 +1039,20 @@ Data-Dumper-2.07 (only if you want to save options)
 
 =head1 BUGS
 
-Not all of Getopt::Long is supported (array and hash options, <>, alias names,
-abbrevs).
+Be sure to pass a real hash reference (not a uninitialized reference)
+to the -options switch in C<new Tk::Getopt>. Use either:
+
+    my %options;
+    my $opt = new Tk::Getopt(-options => \%options ...)
+
+or
+
+    my $options = {};
+    my $opt = new Tk::Getopt(-options => $options ...)
+
+Note the initial assignement for $options in the second example.
+
+Not all of Getopt::Long is supported (array and hash options, <>, abbrevs).
 
 The option editor probably should be a real widget.
 
