@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.4 1997/02/15 04:30:24 eserte Exp $
+# $Id: Getopt.pm,v 1.5 1997/02/15 15:18:10 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright © 1997 Slaven Rezic. All rights reserved.
@@ -20,7 +20,7 @@ use Getopt::Long;
 use strict;
 use vars qw($loadoptions $VERSION);
 
-$VERSION = '0.10';
+$VERSION = '0.11';
 
 sub new {
     my($pkg, %a) = @_;
@@ -34,12 +34,54 @@ sub new {
     bless $self, $pkg;
 }
 
+sub set_defaults {
+    my $self = shift;
+    my $opt;
+    foreach $opt (@{$self->{'opttable'}}) {
+	if (ref $opt eq 'ARRAY' && defined $opt->[2]) {
+	    $self->{'options'}->{$opt->[0]} = $opt->[2];
+	}
+    }
+}
+
 sub load_options {
     my($self, $filename) = @_;
     $filename = $self->{'filename'} if !$filename;
+    return if !$filename;
     eval qq{do "$filename"};
-    if (!$@) {
-	$self->{'loadoptions'} = $loadoptions;
+    if ($@) {
+	warn $@;
+	undef;
+    } else {
+	my $opt;
+	foreach $opt (@{$self->{'opttable'}}) {
+	    if (ref $opt eq 'ARRAY' && exists $loadoptions->{$opt->[0]}) {
+		$self->{'options'}->{$opt->[0]} = $loadoptions->{$opt->[0]};
+	    }
+	}
+	1;
+    }
+}
+
+sub save_options {
+    my($self, $filename) = @_;
+    $filename = $self->{'filename'} if !$filename;
+    return if !$filename;
+    eval "require Data::Dumper";
+    if ($@) {
+	warn $@;
+	undef;
+    } else {
+	if (open(OPT, ">$filename")) {
+	    print OPT
+	      Data::Dumper->Dump([$self->{'options'}], ['loadoptions']);
+	    close OPT;
+	    warn "Options written to $filename";
+	    1;
+	} else {
+	    warn "Can't write to $filename";
+	    undef;
+	}
     }
 }
 
@@ -49,7 +91,6 @@ sub process_options {
     my $opt;
     foreach $opt (@{$self->{'opttable'}}) {
 	if (ref $opt eq 'ARRAY') {
-	    $self->get_loadoption($opt->[0], $opt->[2]);
 	    $getopt{_getopt_long_string($opt->[0], $opt->[1])} =
 	      \$self->{'options'}->{$opt->[0]};
 	    foreach (@{$opt->[3]{'alias'}}) {
@@ -93,15 +134,6 @@ sub usage {
     $usage;
 }
 
-sub get_loadoption {
-    my($self, $option, $default) = @_;
-    if (exists $self->{'loadoptions'}->{$option}) {
-	$self->{'options'}->{$option} = $self->{'loadoptions'}->{$option};
-    } elsif (defined $default) {
-	$self->{'options'}->{$option} = $default;
-    }
-}
-
 sub do_options {
     my($self, $undo) = @_;
     my $options = $self->{'options'};
@@ -122,6 +154,7 @@ sub do_options {
 		# nothing changed:
 		next if (defined $undo
 			 && $options->{$opt} eq $undo->{$opt});
+		# callback:
 		&{$_->[3]{'sub'}};
 	    }
 	}
@@ -133,6 +166,7 @@ sub options_editor {
     if (!defined $string) {
 	$string = {'optedit' => 'Options editor',
 		   'undo' => 'Undo',
+		   'lastsaved' => 'Last saved',
 		   'save' => 'Save',
 		   'defaults' => 'Defaults',
 		   'ok' => 'OK',
@@ -174,6 +208,7 @@ sub options_editor {
 		   -from => $opt->[3]{'range'}[0],
 		   -to => $opt->[3]{'range'}[1],
 		   -showvalue => 1,
+		   -resolution => ($opt->[1] =~ /f/ ? 0 : 1),
 		   -variable => \$self->{'options'}->{$opt->[0]}
 		  )->pack(-side => 'left');
 	    } elsif ($opt->[1] =~ /(s|i|f)/) {
@@ -230,24 +265,17 @@ sub options_editor {
 		   }
 	       }
 	      )->pack(-side => 'left');
+    $f->Button(-text => $string->{'lastsaved'},
+	       -command => sub {
+		   $top->Busy;
+		   $self->load_options;
+		   $top->Unbusy;
+	       }
+	      )->pack(-side => 'left');
     $f->Button(-text => $string->{'save'},
 	       -command => sub {
 		   $top->Busy;
-		   eval "require Data::Dumper";
-		   if ($@) {
-		       warn $@;
-		   } else {
-		       if (open(OPT, ">$self->{'filename'}")) {
-			   print OPT
-			     Data::Dumper->Dump([$self->{'options'}],
-						['loadoptions']),
-			     "1;\n";
-			   close OPT;
-			   warn "Options written to $self->{'filename'}";
-		       } else {
-			   warn "Can't write to $self->{'filename'}";
-		       }
-		   }
+		   $self->save_options;
 		   $top->Unbusy;
 	       }
 	      )->pack(-side => 'left');
@@ -301,6 +329,8 @@ Tk::Options - Access to options via Getopt::Long and Tk window interface
 
 C<Tk::Options> provides an interface to access options via Getopt::Long
 (command line) and via a Tk window.
+
+The API of this package is likely to change!
 
 =head1 METHODS
 
@@ -395,23 +425,23 @@ options from a file.
 Loads options from file I<filename>, or, if not specified, from
 object's filename as specified in B<new>. The loading is done with a
 B<do>-Statement. The loaded file should have a reference to a hash
-named B<loadoptions>. Processing of the options is done in
-B<process_options>.
+named B<loadoptions>.
+
+=item B<save_options(>I<filename>B<)>
+
+Writes options to file I<filename>, or, if not specified, from
+object's filename as specified in B<new>. The saving is done with
+Data::Dumper.
 
 =item B<process_options>
 
-Does two things: sets the options hash using the loadoptions hash and
-gets options via B<GetOptions>.
+Gets options via B<GetOptions>. Returns the same value as GetOptions, i.e.
+0 indicates that the function detected one or more errors.
 
 =item B<usage>
 
 Generates an usage string from object's opttable. The usage string is
 constructed from the option name, default value and help entries.
-
-=item B<get_loadoption(>I<option>, I<default>B<)>
-
-Internal method used by process_options. Sets options entry for
-I<option> with the loadoptions value or default value I<default>.
 
 =item B<do_options(>[I<undo_hash>]B<)>
 
@@ -423,7 +453,7 @@ given and the new value of an option did not change, no sub is called.
 
 Pops the options editor up. The editor provides facilitied for editing
 options, undoing, restoring to their default valued and saving to the
-default options file. The package C<Data::Dumper> is needed for saving.
+default options file.
 
 =back
 
