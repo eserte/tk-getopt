@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.2 1997/02/14 12:29:23 eserte Exp $
+# $Id: Getopt.pm,v 1.3 1997/02/15 04:10:20 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright © 1997 Slaven Rezic. All rights reserved.
@@ -14,9 +14,13 @@
 
 package Tk::Options;
 use Tk;
+use Tk::NoteBook;
+use Tk::LabEntry;
 use Getopt::Long;
 use strict;
-use vars qw($loadoptions);
+use vars qw($loadoptions $VERSION);
+
+$VERSION = '0.10';
 
 sub new {
     my($pkg, %a) = @_;
@@ -25,15 +29,15 @@ sub new {
     $self->{'opttable'} = $a{'-opttable'};
     die "No options hash ref" if !exists $a{'-options'};
     $self->{'options'} = $a{'-options'};
-    $self->{'loadoptions'} = $a{'-loadoptions'};
     $self->{'filename'} = $a{'-filename'};
     $self->{'toplevel'} = $a{'-toplevel'} || 'Toplevel';
     bless $self, $pkg;
 }
 
 sub load_options {
-    my $self = shift;
-    eval qq{do "$self->{'filename'}"};
+    my($self, $filename) = @_;
+    $filename = $self->{'filename'} if !$filename;
+    eval qq{do "$filename"};
     if (!$@) {
 	$self->{'loadoptions'} = $loadoptions;
     }
@@ -45,9 +49,10 @@ sub process_options {
     foreach (@{$self->{'opttable'}}) {
 	if (ref $_ eq 'ARRAY') {
 	    $self->get_loadoption($_->[0], $_->[2]);
-	    $getopt{$_->[0].$_->[1]} = \$self->{'options'}->{$_->[0]};
-	    if (exists $_->[3]{'short'}) {
-		$getopt{$_->[3]{short}.($_->[1] ne '!' ? $_->[1] : '')} =
+	    $getopt{_getopt_long_string($_->[0], $_->[1])} =
+	      \$self->{'options'}->{$_->[0]};
+	    foreach (@{$_->[3]{'alias'}}) {
+		$getopt{_getopt_long_string($_, $_->[1])} =
 		  \$self->{'options'}->{$_->[0]};
 	    }
 	}
@@ -55,15 +60,28 @@ sub process_options {
     GetOptions(%getopt);
 }
 
+sub _getopt_long_string {
+    my($option, $type) = @_;
+    $option . (length($option) == 1 && $type eq '!'
+	       ? '' : $type);
+}
+
+sub _getopt_long_dash {
+    my $option = @_;
+    (length($option) == 1 ? '' : '-') . "-$option";
+}
+
 sub usage {
     my $self = shift;
     my $usage = "Usage: $0 [options]\n";
-    foreach (@{$self->{'opttable'}}) {
-	if (ref $_ eq 'ARRAY') {
-	    $usage .= "-" . $_->[3]{'short'} . ", " if $_->[3]{'short'};
-	    $usage .= "--" . $_->[0] . "\t";
-	    $usage .= $_->[3]{'help'};
-	    $usage .= " (default: " . $_->[2] . ") " if $_->[2];
+    my $opt;
+    foreach $opt (@{$self->{'opttable'}}) {
+	if (ref $opt eq 'ARRAY') {
+	    $usage .= _getopt_long_dash($opt->[0]);
+	    $usage .= join('', map { "\n" . _getopt_long_dash($_) } 
+			   @{$opt->[3]{'alias'}});
+	    $usage .= "\t" . $opt->[3]{'help'};
+	    $usage .= " (default: " . $opt->[2] . ") " if $opt->[2];
 	    $usage .= "\n";
 	}
     }
@@ -248,6 +266,177 @@ sub options_editor {
 
     $optedit->UnderlineAll if $optedit->can('UnderlineAll');
     $optedit->Show if $optedit->can('Show');
+
+    $optedit;
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Tk::Options - Access to options via Getopt::Long and Tk window interface
+
+=head1 SYNOPSIS
+
+    use Tk::Options;
+    ...
+    @opttable = (['opt1', '=s', 'default'], ['opt2', '!', 1], ...);
+    $opt = new Tk::Options(-opttable => \@opttable,
+                           -options => \%options,
+			   -filename => "$ENV{HOME}/.options");
+    $opt->load_options;
+    $opt->process_options;
+    $opt->do_options;
+    ...
+    $opt->options_editor($top);
+
+=head1 DESCRIPTION
+
+C<Tk::Options> provides an interface to access options via Getopt::Long
+(command line) and via a Tk window.
+
+=head1 METHODS
+
+=over 4
+
+=item B<new Tk::Options(>I<arg_hash>B<)>
+
+Constructs a new object of the class Tk::Options. Arguments are
+delivered in a hash with following keys:
+
+=over 8
+
+=item -opttable
+
+This argument is mandatory and should be a reference to an array
+containing all used options. Elements of this array may be strings,
+which indicate the beginning of a new group, or array references
+describing the options. The first element of this array is the name of
+the option, the second is the type (string, integer, boolean etc., see
+C<Getopt::Long>) of this option. The third element is optional and is
+the default value (otherwise the default is undefined). The fourth
+element is optional too and have to be a reference to a hash:
+
+=over 12
+
+=item alias
+
+An array of aliases also accepted by Getopt::Long.
+
+=item label
+
+A label to be displayed in the options editor instead of the option name.
+
+=item help
+
+A short help string used by B<usage> and the Balloon help facility in
+B<options_editor>.
+
+=item longhelp
+
+A long help string used by B<options_editor>.
+
+=item choices
+
+An array of additional choices for the options editor.
+
+=item from
+
+The beginning of a range for an integer or float value.
+
+=item to
+
+The end of a range for an integer or float value.
+
+=item strict
+
+Must be used with I<choices> or I<from/to>. When set to true, options have to
+match either the choices or the range between I<from> and I<to>.
+
+=back
+
+=item Example:
+
+    @opttable = (['debug', '!', 0,
+		  {'sub' => sub { $^W = 1 
+				    if $options->{'debug'}; }}],
+                 ['age', '=i', 18,
+		  {'strict' => 1, 'from' => 0, 'to' => 100,
+		   'alias' => ['year', 'years']}],
+                 ['browser', '=s', 'tkweb',
+		  {'choices' => ['mosaic', 'netscape',
+				 'lynx', 'chimera'],
+		   'label' => 'WWW browser program'}],
+		 ['foo', '=f', undef,
+		  {'help' => 'This is a short help',
+		   'longhelp' => 'And this is a slightly longer help'}]);
+
+=item -options
+
+This argument is mandatory and should be a reference to a (empty)
+hash. Options are set into this hash.
+
+=item -filename
+
+This argument is optional and specified the filename for loading saved
+options from a file.
+
+=back
+
+=item B<load_options(>I<filename>B<)>
+
+Loads options from file I<filename>, or, if not specified, from
+object's filename as specified in B<new>. The loading is done with a
+B<do>-Statement. The loaded file should have a reference to a hash
+named B<loadoptions>. Processing of the options is done in
+B<process_options>.
+
+=item B<process_options>
+
+Does two things: sets the options hash using the loadoptions hash and
+gets options via B<GetOptions>.
+
+=item B<usage>
+
+Generates an usage string from object's opttable. The usage string is
+constructed from the option name, default value and help entries.
+
+=item B<get_loadoption(>I<option>, I<default>B<)>
+
+Internal method used by process_options. Sets options entry for
+I<option> with the loadoptions value or default value I<default>.
+
+=item B<do_options(>[I<undo_hash>]B<)>
+
+Checks wheather given values are valid (if B<strict> is set) and calls
+any subroutines specified by the B<sub> option. If I<undo_hash> is
+given and the new value of an option did not change, no sub is called.
+
+=item B<options_editor(>I<widget>, [I<string_hash>]B<)>
+
+Pops the options editor up. The editor provides facilitied for editing
+options, undoing, restoring to their default valued and saving to the
+default options file. The package C<Data::Dumper> is needed for saving.
+
+=back
+
+=head1 BUGS
+
+B<load_options> should be done inside of a B<Safe> compartment.
+
+My English is bad.
+
+=head1 AUTHOR
+
+B<Slaven Rezic> <eserte@cs.tu-berlin.de>
+
+This package is free software; you can redistribute it and/or
+modify it under the same terms as Perl itself.
+
+=head1 SEE ALSO
+
+perl(1), Getopt::Long(3), Data::Dumper(3), Tk(3), Tk::NoteBook(3)
+
+=cut
