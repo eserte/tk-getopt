@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.24 1998/02/09 19:41:46 eserte Exp $
+# $Id: Getopt.pm,v 1.25 1998/02/09 20:27:04 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997, 1998 Slaven Rezic. All rights reserved.
@@ -15,9 +15,11 @@
 package Tk::Getopt;
 require 5.003;
 use strict;
-use vars qw($loadoptions $VERSION);
+use vars qw($loadoptions $VERSION $x11_pass_through);
 
 $VERSION = '0.34';
+
+$x11_pass_through = 0;
 
 sub new {
     my($pkg, %a) = @_;
@@ -235,7 +237,26 @@ sub get_options {
 	}
     }
     require Getopt::Long;
-    Getopt::Long::GetOptions(%getopt);
+    if ($x11_pass_through) {
+	Getopt::Long::config('pass_through');
+    }
+    my $res = Getopt::Long::GetOptions(%getopt);
+    # Hack to pass standard X11 options (as defined in Tk::CmdLine)
+    if ($x11_pass_through) {
+	require Tk::CmdLine;
+	my $flag_ref = \&Tk::CmdLine::flag;
+	my @args = @ARGV;
+	while (@args && $args[0] =~ /^-(\w+)$/) {
+	    my $sw = $1;
+	    return 0 if !$Tk::CmdLine::switch{$sw};
+	    if ($Tk::CmdLine::switch{$sw} ne $flag_ref) {
+		shift @args;
+	    }
+	    shift @args;
+	}
+	$res = 1;
+    }
+    $res;
 }
 
 # Builds a string for Getopt::Long. Arguments are option name and option
