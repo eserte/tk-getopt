@@ -1,5 +1,11 @@
 Revision history for Perl extension Tk::Getopt.
 
+0.46
+	- using Tk::DirSelect, if installed
+
+0.45
+	- using Tk::PathEntry, if installed
+
 0.44
 	- new subtypes: font and geometry
 
