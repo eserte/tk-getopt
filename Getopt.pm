@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.25 1998/02/09 20:27:04 eserte Exp $
+# $Id: Getopt.pm,v 1.26 1998/02/11 01:22:58 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997, 1998 Slaven Rezic. All rights reserved.
@@ -653,11 +653,12 @@ sub option_editor {
 		       $opt_editor->destroy;
 		   }
 		  )->grid(-row => 0, -column => 2, -sticky => 'ew');
+    my $grid_col = 0;
     $f->Button(-text => $string->{'undo'},
 	       -command => sub {
 		   $self->_do_undo(\%undo_options);
 	       }
-	      )->grid(-row => 1, -column => 0, -sticky => 'ew');
+	      )->grid(-row => 1, -column => $grid_col++, -sticky => 'ew');
     if ($self->{'filename'}) {
 	$f->Button(-text => $string->{'lastsaved'},
 		   -command => sub {
@@ -665,7 +666,7 @@ sub option_editor {
 			$self->load_options;
 			$top->Unbusy;
 		    }
-		  )->grid(-row => 1, -column => 1, -sticky => 'ew');
+		  )->grid(-row => 1, -column => $grid_col++, -sticky => 'ew');
 	if (!$nosave) {
 	    my $sb;
 	    $sb = $f->Button(-text => $string->{'save'},
@@ -677,14 +678,15 @@ sub option_editor {
 				 }
 				 $top->Unbusy;
 			     }
-			    )->grid(-row => 1, -column => 2, -sticky => 'ew');
+			    )->grid(-row => 1, -column => $grid_col++,
+				    -sticky => 'ew');
 	}
     }
     $f->Button(-text => $string->{'defaults'},
 	       -command => sub {
 		   $self->set_defaults;
 	       }
-	      )->grid(-row => 1, -column => 3, -sticky => 'ew');
+	      )->grid(-row => 1, -column => $grid_col++, -sticky => 'ew');
 
     &$callback($self, $opt_editor) if $callback;
 
