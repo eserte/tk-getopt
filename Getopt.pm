@@ -1,10 +1,10 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.33 2000/08/23 23:28:05 eserte Exp $
+# $Id: Getopt.pm,v 1.34 2000/09/02 00:08:35 eserte Exp $
 # Author: Slaven Rezic
 #
-# Copyright (C) 1997,1998,1999 Slaven Rezic. All rights reserved.
+# Copyright (C) 1997,1998,1999,2000 Slaven Rezic. All rights reserved.
 # This package is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
@@ -413,7 +413,7 @@ sub _integer_widget {
     if (exists $opt->[OPTEXTRA]{'range'}) {
 	$self->_number_widget($frame, $opt);
     } else {
-	$self->_string_widget($frame, $opt);
+	$self->_string_widget($frame, $opt, -restrict => "=i");
     }
 }
 
@@ -422,7 +422,7 @@ sub _float_widget {
     if (exists $opt->[OPTEXTRA]{'range'}) {
 	$self->_number_widget($frame, $opt);
     } else {
-	$self->_string_widget($frame, $opt);
+	$self->_string_widget($frame, $opt, -restrict => "=f");
     }
 }
 
@@ -444,11 +444,32 @@ sub _list_widget {
 }
 
 sub _string_widget {
-    my($self, $frame, $opt) = @_;
+    my($self, $frame, $opt, %args) = @_;
     if (exists $opt->[OPTEXTRA]{'choices'}) {
 	$self->_list_widget($frame, $opt);
     } else {
-	$frame->Entry(-textvariable => $self->_varref($opt));
+	my $e = $frame->Entry(-textvariable => $self->_varref($opt));
+	if ($args{-restrict}) {
+	    eval {
+		if ($args{-restrict} eq "=i") {
+		    $e->configure
+			(-validate => "all",
+			 -vcmd => sub {
+			     $_[0] =~ /^([+-]?\d+|)$/;
+			 },
+			);
+		} elsif ($args{-restrict} eq "=f") {
+		    $e->configure
+			(-validate => "all",
+			 -vcmd => sub {
+			     $_[0] =~ /^(|([+-]?)(?=\d|\.\d)\d*(\.\d*)?([Ee]([+-]?\d+))?)$/;
+			 },
+			);
+		}
+	    };
+	    warn $@ if $@;
+	}
+	$e;
     }
 }
 
