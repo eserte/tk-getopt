@@ -27,10 +27,12 @@ $loaded = 1;
     {'choices' => ["/tmp/export.dat", "$ENV{HOME}/export.dat"],
      'subtype' => 'file'}],
    ['dumpfile', '=s', '/tmp/dump', {'subtype' => 'file'}],
+   ['datadir', '=s', '/tmp', {'subtype' => 'dir'}],
    ['autoload', '!', 0,
     {'help' => 'Turns autoloading of the default database file on or off'}],
    
    'x11',
+   ['', '', "X11 related options like colors and fonts.\nThis is named `X11', but is also relevant for other windowing systems."],
    ['bg', '=s', undef, 
     {'callback' =>
      sub {
