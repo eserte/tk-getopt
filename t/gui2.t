@@ -52,6 +52,8 @@ if (!$opt->get_options) {
     die $opt->usage;
 }
 
+if (!defined $ENV{BATCH}) { $ENV{BATCH} = 1 }
+
 my $batch_mode = !!$ENV{BATCH};
 my $timerlen = ($batch_mode ? 1000 : 60*1000);
 
