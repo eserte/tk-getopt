@@ -1,6 +1,6 @@
 # -*- perl -*-
 
-BEGIN { $| = 1; print "1..10\n";}
+BEGIN { $| = 1; print "1..11\n";}
 END {print "not ok 1\n" unless $loaded;}
 
 use Tk::Getopt;
@@ -56,3 +56,13 @@ if (!$opt4->get_options) {
 
 print( ($sss ne 'srt' ? "not " : "") . "ok 9\n");
 print( ($iii != 314 ? "not " : "") . "ok 10\n");
+
+@ARGV = qw(--ttt=srt);
+
+$sss = undef;
+$opt5 = new Tk::Getopt(-opttable => [["ttt", "=s", undef, {'var' => \$sss}]]);
+if (!$opt5->get_options) {
+    die $opt5->usage;
+}
+
+print( ($sss ne 'srt' ? "not " : "") . "ok 11\n");
