@@ -1,10 +1,10 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.27 1998/07/02 21:29:48 eserte Exp $
+# $Id: Getopt.pm,v 1.28 1999/06/09 21:58:23 eserte Exp $
 # Author: Slaven Rezic
 #
-# Copyright (C) 1997, 1998 Slaven Rezic. All rights reserved.
+# Copyright (C) 1997,1998,1999 Slaven Rezic. All rights reserved.
 # This package is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
@@ -15,10 +15,13 @@
 package Tk::Getopt;
 require 5.003;
 use strict;
-use vars qw($loadoptions $VERSION $x11_pass_through);
+use vars qw($loadoptions $VERSION $x11_pass_through
+	    $CHECKMARK_OFF $CHECKMARK_ON $DEBUG
+	   );
 
-$VERSION = '0.35';
+$VERSION = '0.36';
 
+$DEBUG = 0;
 $x11_pass_through = 0;
 
 sub new {
@@ -30,7 +33,7 @@ sub new {
     if (exists $a{'-opttable'}) {
 	$self->{'opttable'} = delete $a{'-opttable'};
 	foreach (@{$self->{'opttable'}}) {
-	    if (ref $_ eq 'ARRAY' and 
+	    if (ref $_ eq 'ARRAY' and
 		defined $_->[3] and
 		ref $_->[3] ne 'HASH') {
 		my %h = splice @$_, 3;
@@ -84,7 +87,7 @@ sub new {
 			   $self->{'options'}{$o} :
 			   \$self->{'options'}{$o});
 	    } elsif (ref $optionlist[0]) {
-		# link to global variable 
+		# link to global variable
 		$varref = shift @optionlist;
 	    }
 	    my %a;
@@ -101,11 +104,11 @@ sub new {
 		if (ref $varref eq 'SCALAR') {
 		    $a{'var'} = $varref;
 		} else {
-		    die "Can't handle variable reference of type " 
+		    die "Can't handle variable reference of type "
 		      . ref $varref;
 		}
 	    }
-	    if (defined @aliases) {
+	    if (@aliases) {
 		$a{'alias'} = \@aliases;
 	    }
 	    push(@{$self->{'opttable'}}, [$o, $c, undef, \%a]);
@@ -182,7 +185,11 @@ sub load_options {
     my $opt;
     foreach $opt ($self->_opt_array) {
 	if (exists $loadoptions->{$opt->[0]}) {
-	    $ {$self->_varref($opt)} = $loadoptions->{$opt->[0]};
+	    if (ref $self->_varref($opt) eq 'CODE') {
+		&{$self->_varref($opt)} if $loadoptions->{$opt->[0]};
+	    } else {
+		$ {$self->_varref($opt)} = $loadoptions->{$opt->[0]};
+	    }
 	}
     }
     1;
@@ -213,7 +220,7 @@ sub save_options {
 		  Data::Dumper->Dump([\%saveoptions], ['loadoptions']);
 	    }
 	    close OPT;
-	    warn "Options written to $filename";
+	    warn "Options written to $filename" if $DEBUG;
 	    1;
 	} else {
 	    warn "Can't write to $filename";
@@ -237,24 +244,42 @@ sub get_options {
 	}
     }
     require Getopt::Long;
+    # XXX anders implementieren ... vielleicht die X11-Optionen zusätzlich
+    # in die %getopt-Liste reinschreiben?
     if ($x11_pass_through) {
 	Getopt::Long::config('pass_through');
     }
     my $res = Getopt::Long::GetOptions(%getopt);
     # Hack to pass standard X11 options (as defined in Tk::CmdLine)
     if ($x11_pass_through) {
-	require Tk::CmdLine;
-	my $flag_ref = \&Tk::CmdLine::flag;
-	my @args = @ARGV;
-	while (@args && $args[0] =~ /^-(\w+)$/) {
-	    my $sw = $1;
-	    return 0 if !$Tk::CmdLine::switch{$sw};
-	    if ($Tk::CmdLine::switch{$sw} ne $flag_ref) {
-		shift @args;
+	eval {
+	    require Tk::CmdLine;
+	    if ($Tk::CmdLine::VERSION >= 3.012) {
+		# XXX nicht ausgetestet
+		my @args = @ARGV;
+		while (@args && $args[0] =~ /^-(\w+)$/) {
+		    my $sw = $1;
+		    return 0 if !$Tk::CmdLine::Method{$sw};
+		    if ($Tk::CmdLine::Method{$sw} ne 'Flag_') {
+			shift @args;
+		    }
+		    shift @args;
+		}
+	    } else {
+		my $flag_ref = \&Tk::CmdLine::flag;
+		my @args = @ARGV;
+		while (@args && $args[0] =~ /^-(\w+)$/) {
+		    my $sw = $1;
+		    return 0 if !$Tk::CmdLine::switch{$sw};
+		    if ($Tk::CmdLine::switch{$sw} ne $flag_ref) {
+			shift @args;
+		    }
+		    shift @args;
+		}
 	    }
-	    shift @args;
-	}
-	$res = 1;
+	    $res = 1;
+	};
+	warn $@ if $@;
     }
     $res;
 }
@@ -263,7 +288,7 @@ sub get_options {
 # type (e.g. '!' or '=s').
 sub _getopt_long_string {
     my($option, $type) = @_;
-    $option . (length($option) == 1 && 
+    $option . (length($option) == 1 &&
 	       (!defined $type || $type eq '' || $type eq '!')
 	       ? '' : $type);
 }
@@ -282,7 +307,7 @@ sub usage {
 	# The following prints all options as a comma-seperated list
 	# with one or two dashes, depending on the length of the option.
 	# Options are sorted by length.
- 	$usage .= join(', ', 
+ 	$usage .= join(', ',
  		       sort { length $a <=> length $b }
  		       map { _getopt_long_dash($_) }
  		       map { ($opt->[1] eq '!' ? "[no]" : "") . $_ }
@@ -301,13 +326,13 @@ sub process_options {
     foreach ($self->_opt_array) {
 	my $opt = $_->[0];
 	if ($_->[3]{'callback'}) {
-	    # no warnings here ... it would be too complicated to catch 
+	    # no warnings here ... it would be too complicated to catch
 	    # all undefined values
 	    my $old_w = $^W;
-	    local($^W) = 0; 
+	    local($^W) = 0;
 	    # execute callback if value has changed
 	    if (!(defined $former
-		  && (!exists $former->{$opt} 
+		  && (!exists $former->{$opt}
 		      || $ {$self->_varref($_)} eq $former->{$opt}))) {
 		local($^W) = $old_w; # fall back to original value
 		&{$_->[3]{'callback'}};
@@ -324,7 +349,7 @@ sub process_options {
 		    . " for $opt. Using old value $former->{$opt}";
 		    $ {$self->_varref($_)} = $former->{$opt};
 		} else {
-		    die "Not allowed: " 
+		    die "Not allowed: "
 		      . $ {$self->_varref($_)} . " for $opt";
 		}
 	    }
@@ -335,6 +360,17 @@ sub process_options {
 sub _boolean_widget {
     my($self, $frame, $opt) = @_;
     $frame->Checkbutton(-variable => $self->_varref($opt));
+}
+
+sub _boolean_checkmark_widget {
+    # XXX hangs with Tk800.014?!
+    my($self, $frame, $opt) = @_;
+    _create_checkmarks($frame);
+    $frame->Checkbutton(-variable => $self->_varref($opt),
+			-image => $CHECKMARK_OFF,
+			-selectimage => $CHECKMARK_ON,
+			-indicatoron => 0,
+		       );
 }
 
 sub _number_widget {
@@ -406,34 +442,48 @@ sub _filedialog_widget {
 	$e = $topframe->Entry(-textvariable => $self->_varref($opt));
     }
     $e->pack(-side => 'left');
-    # XXX optionally use Tk::FileEntry
+
     my $b = $topframe->Button
       (-text => 'Browse...',
        -command => sub {
 	   require File::Basename;
-	   my $fd = 'FileDialog';
-	   eval { require Tk::FileDialog };
-	   if ($@) {
-	       require Tk::FileSelect;
-	       $fd = 'FileSelect';
-	   }
-	   # XXX set FileDialog options via $opt->[3]{'filedialog_opt'}
-	   my $filedialog;
-	   if ($fd eq 'FileDialog') {
-	       $filedialog = $topframe->FileDialog(-Title => 'Select file');
+	   my($fd, $filedialog);
+	   if ($Tk::VERSION >= 800) {
+	       $fd = 'getOpenFile';
 	   } else {
-	       $filedialog = $topframe->FileSelect;
+	       $fd = 'FileDialog';
+	       eval { require Tk::FileDialog };
+	       if ($@) {
+		   require Tk::FileSelect;
+		   $fd = 'FileSelect';
+	       }
+	       # XXX set FileDialog options via $opt->[3]{'filedialog_opt'}
+	       if ($fd eq 'FileDialog') {
+		   $filedialog = $topframe->FileDialog
+		     (-Title => 'Select file');
+	       } else {
+		   $filedialog = $topframe->FileSelect;
+	       }
 	   }
 	   my($dir, $base, $file);
 	   my $act_val = $ {$self->_varref($opt)};
 	   if ($act_val) {
-	       if ($fd eq 'FileDialog') {
-		   $file = $filedialog->Show
-		     (-Path => File::Basename::dirname($act_val),
-		      -File => File::Basename::basename($act_val));
+	       $dir  = File::Basename::dirname($act_val);
+	       $base = File::Basename::basename($act_val);
+	       $dir = '.' if (!-d $dir);
+
+	       if ($fd eq 'getOpenFile') {
+		   $file = $topframe->getOpenFile(-initialdir => $dir,
+						  -initialfile => $base,
+						  -title => 'Select file',
+# XXX erst ab 800.013 (?)
+#						  -force => 1,
+						 );
+	       } elsif ($fd eq 'FileDialog') {
+		   $file = $filedialog->Show(-Path => $dir,
+					     -File => $base);
 	       } else {
-		   $file = $filedialog->Show
-		     (-directory => File::Basename::dirname($act_val));
+		   $file = $filedialog->Show(-directory => $dir);
 	       }
 	   } else {
 	       $file = $filedialog->Show;
@@ -476,7 +526,7 @@ sub _create_page {
 	    # own widget
 	    $w = &{$opt->[3]{'widget'}}($self, $f, $opt);
 	} elsif (defined $opt->[1] && $opt->[1] eq '!' or $opt->[1] eq '') {
-	    $w = $self->_boolean_widget($f, $opt);
+	    $w = $self->_boolean_widget($f, $opt); # XXX _checkmark_
 	} elsif (defined $opt->[1] && $opt->[1] =~ /i/) {
 	    $w = $self->_integer_widget($f, $opt);
 	} elsif (defined $opt->[1] && $opt->[1] =~ /f/) {
@@ -584,7 +634,7 @@ sub option_editor {
 	if ($use_statusbar) {
 	    $statusbar = $opt_editor->Label;
 	}
-	$balloon = $opt_notebook->Balloon($use_statusbar 
+	$balloon = $opt_notebook->Balloon($use_statusbar
 					  ? (-statusbar => $statusbar)
 					  : ());
     }
@@ -632,14 +682,32 @@ sub option_editor {
     }
 
     require Tk::Tiler;
-    my $f  = $opt_editor->Tiler->pack(-fill => 'x');
-#    my $f  = $opt_editor->Frame->pack(-fill => 'x', -expand => 1);
-#$f->optionAdd("*" . substr($f->PathName, 1) . ".ok.text", "Ist ok...", 'widgetDefault');
+    my $f;
+    $f = $opt_editor->Tiler
+      (-rows => 1,
+       -columns => 1,
+       -yscrollcommand => sub {
+	   my $bw = $f->cget(-highlightthickness);
+	   return if (!$f->{Sw});
+	   my $nenner = int(($f->Width-2*$bw)/$f->{Sw});
+	   return if (!$nenner);
+	   my $rows = @{$f->{Slaves}}/$nenner;
+	   return if (!$rows);
+	   if ($rows/int($rows) > 0) {
+	       $rows = int($rows)+1;
+	   }
+	   $f->GeometryRequest($f->Width,
+			       2*$bw+$rows*$f->{Sh});
+       })->pack(-fill => 'x');
+    $f->bind('<Configure>' => sub {
+		 if ($f->y + $f->height > $top->height) {
+		     $top->geometry($top->width."x".($f->height+$f->y));
+		 }
+	     });
     my @tiler_b;
     my $ok_button
       = $f->Button(-text => $string->{'ok'},
 		   -underline => 0,
-#		   Name => 'ok',
 		   -command => sub {
 		       $self->process_options(\%undo_options, 1);
 		       if (!$dont_use_notebook) {
@@ -647,14 +715,14 @@ sub option_editor {
 		       }
 		       $opt_editor->destroy;
 		   }
-		  );#->grid(-row => 0, -column => 0, -sticky => 'ew');
+		  );
     push @tiler_b, $ok_button;
     my $apply_button
       = $f->Button(-text => $string->{'apply'},
 		   -command => sub {
 		       $self->process_options(\%undo_options, 1);
 		   }
-		  );#->grid(-row => 0, -column => 1, -sticky => 'ew');
+		  );
     push @tiler_b, $apply_button;
     my $cancel_button
       = $f->Button(-text => $string->{'cancel'},
@@ -665,14 +733,14 @@ sub option_editor {
 		       }
 		       $opt_editor->destroy;
 		   }
-		  );#->grid(-row => 0, -column => 2, -sticky => 'ew');
+		  );
     push @tiler_b, $cancel_button;
     my $grid_col = 0;
     my $undo_button = $f->Button(-text => $string->{'undo'},
 	       -command => sub {
 		   $self->_do_undo(\%undo_options);
 	       }
-	      );#->grid(-row => 1, -column => $grid_col++, -sticky => 'ew');
+	      );
     push @tiler_b, $undo_button;
     if ($self->{'filename'}) {
 	my $lastsaved_button = $f->Button(-text => $string->{'lastsaved'},
@@ -681,7 +749,7 @@ sub option_editor {
 			$self->load_options;
 			$top->Unbusy;
 		    }
-		  );#->grid(-row => 1, -column => $grid_col++, -sticky => 'ew');
+		  );
 	push @tiler_b, $lastsaved_button;
 
 	if (!$nosave) {
@@ -695,20 +763,16 @@ sub option_editor {
 				 }
 				 $top->Unbusy;
 			     }
-			    );#->grid(-row => 1, -column => $grid_col++,
-	    #-sticky => 'ew');
+			    );
 	    push @tiler_b, $sb;
 	}
     }
     my $def_button = $f->Button(-text => $string->{'defaults'},
-	       -command => sub {
-		   $self->set_defaults;
-	       }
-	      );#->grid(-row => 1, -column => $grid_col++, -sticky => 'ew');
+				-command => sub {
+				    $self->set_defaults;
+				}
+	      );
     push @tiler_b, $def_button;
-    $f->configure(-columns => 3,
-		  -rows => int(@tiler_b/3)+(@tiler_b%3 != 0 ? 1 : 0)
-		 );
     $f->Manage(@tiler_b);
 
     &$callback($self, $opt_editor) if $callback;
@@ -730,6 +794,20 @@ sub option_editor {
     }
 
     $opt_editor;
+}
+
+sub _create_checkmarks {
+    my $w = shift;
+
+    $CHECKMARK_ON  = $w->Photo(-data => <<EOF)
+R0lGODdhDgAOAIAAAP///1FR+ywAAAAADgAOAAACM4SPFplGIXy0yDQK4aNFZAIlhI8QEQkUACKC
+4EMERFAI3yg+wb+ICEQjMeGjRWQahfCxAAA7
+EOF
+      unless $CHECKMARK_ON;
+    $CHECKMARK_OFF = $w->Photo(-data => <<EOF)
+R0lGODdhDgAOAIAAAAAAAP///ywAAAAADgAOAAACDYyPqcvtD6OctNqrSAEAOw==
+EOF
+      unless $CHECKMARK_OFF;
 }
 
 1;
@@ -756,7 +834,7 @@ Tk::Getopt - User configuration window for Tk with interface to Getopt::Long
     $top = new MainWindow;
     $opt->option_editor($top);
 
-or using a F<Getopt::Long>-like interface
+or using a L<Getopt::Long|Getopt::Long>-like interface
 
     $opt = new Tk::Getopt(-getopt => ['help'   => \$HELP,
 				      'file:s' => \$FILE,
@@ -773,7 +851,7 @@ or an alternative F<Getopt::Long> interface
 =head1 DESCRIPTION
 
 F<Tk::Getopt> provides an interface to access command line options via
-F<Getopt::Long> and editing with a graphical user interface via a Tk window.
+L<Getopt::Long|Getopt::Long> and editing with a graphical user interface via a Tk window.
 
 Unlike F<Getopt::Long>, this package uses a object oriented interface, so you
 have to create a new F<Tk::Getopt> object with B<new>. Unlike other
@@ -786,7 +864,7 @@ B<Getopt::Long::GetOptions>.
 
 =head1 METHODS
 
-=over
+=over 4
 
 =item B<new Tk::Getopt(>I<arg_hash>B<)>
 
@@ -800,7 +878,7 @@ or B<-opttable> are mandatory.
 
 The arguments for B<new> are:
 
-=over
+=over 8
 
 =item -getopt
 
@@ -830,7 +908,7 @@ the default value (otherwise the default is undefined). Further
 elements are optional too and describes more attributes. The attributes
 have to be key-value pairs with following keys:
 
-=over
+=over 12
 
 =item alias
 
@@ -893,7 +971,7 @@ Here is an example for this rather complicated argument:
 	 ['debug', # name of the option (--debug)
           '!',     # type boolean, accept --nodebug
           0,       # default is 0 (false)
-          callback => sub { $^W = 1 
+          callback => sub { $^W = 1
                                 if $options->{'debug'}; }
           # additional attribute: callback to be called if
           # you set or change the value
@@ -959,7 +1037,7 @@ named I<$loadoptions>.
 
 Writes options to file B<filename>, or, if not specified, from
 object's filename as specified in B<new>. The saving is done with
-F<Data::Dumper>. Since saving may fail, you should call this method inside
+L<Data::Dumper|Data::Dumper>. Since saving may fail, you should call this method inside
 of C<eval {}> and check I<$@>. Possible exceptions are C<No Data::Dumper>
 (cannot find the F<Data::Dumper> module) and C<Writing failed> (cannot
 write to file).
@@ -972,7 +1050,7 @@ Gets options via B<GetOptions>. Returns the same value as B<GetOptions>, i.e.
 If you want to process options which does not appear in the GUI, you have
 two alternatives:
 
-=over
+=over 8
 
 =item *
 
@@ -1022,7 +1100,7 @@ default options file.
 The first argument is the parent widget. Further optional arguments are
 passed as a hash:
 
-=over
+=over 8
 
 =item -callback
 
@@ -1067,7 +1145,7 @@ Note: this method returns immediately to the calling program.
 
 Buttons in the option editor window:
 
-=over
+=over 8
 
 =item OK
 
@@ -1095,7 +1173,7 @@ in C<new>.
 
 The option types are translated to following widgets:
 
-=over
+=over 8
 
 =item Boolean
 
@@ -1119,7 +1197,7 @@ B<FileDialog> if B<subtype> is set to B<file>.
 
 You need at least:
 
-=over
+=over 4
 
 =item *
 
@@ -1131,7 +1209,8 @@ Tk400.202 (better: Tk800.007) (only if you want the GUI)
 
 =item *
 
-Data-Dumper-2.07 (only if you want to save options)
+Data-Dumper-2.07 (only if you want to save options and it's anyway
+standard in perl5.005)
 
 =back
 
@@ -1155,7 +1234,13 @@ Not all of Getopt::Long is supported (array and hash options, <>, abbrevs).
 The option editor probably should be a real widget.
 
 The option editor window may grow very large if NoteBook is not used (should
-use a scrollable frame).
+use a scrollable pane).
+
+If the user resizes the window, the buttons at bottom may disappear.
+This is confusing and it is advisable to disallow the resizing:
+
+    $opt_editor = $opt->option_editor;
+    $opt_editor->resizable(0,0);
 
 The API will not be stable until version 1.00.
 
@@ -1173,6 +1258,13 @@ modify it under the same terms as Perl itself.
 
 =head1 SEE ALSO
 
-L<perl>, L<Getopt::Long>, L<Data::Dumper>, L<Tk>, L<Tk::NoteBook>, L<Safe>
+L<perl|perl>
+L<Getopt::Long|Getopt::Long>
+L<Data::Dumper|Data::Dumper>
+L<Tk|Tk>
+L<Tk::FileDialog|Tk::FileDialog>
+L<Tk::NoteBook|Tk::NoteBook>
+L<Tk::Tiler|Tk::Tiler>
+L<Safe|Safe>
 
 =cut
