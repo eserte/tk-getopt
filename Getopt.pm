@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.22 1998/01/08 11:45:00 eserte Exp $
+# $Id: Getopt.pm,v 1.23 1998/01/08 12:46:49 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997, 1998 Slaven Rezic. All rights reserved.
@@ -373,16 +373,31 @@ sub _filedialog_widget {
     my $b = $topframe->Button
       (-text => 'Browse...',
        -command => sub {
-	   require Tk::FileDialog;
 	   require File::Basename;
+	   my $fd = 'FileDialog';
+	   eval { require Tk::FileDialog };
+	   if ($@) {
+	       require Tk::FileSelect;
+	       $fd = 'FileSelect';
+	   }
 	   # XXX set FileDialog options via $opt->[3]{'filedialog_opt'}
-	   my $filedialog = $topframe->FileDialog(-Title => 'Select file');
+	   my $filedialog;
+	   if ($fd eq 'FileDialog') {
+	       $filedialog = $topframe->FileDialog(-Title => 'Select file');
+	   } else {
+	       $filedialog = $topframe->FileSelect;
+	   }
 	   my($dir, $base, $file);
 	   my $act_val = $ {$self->_varref($opt)};
 	   if ($act_val) {
-	       $file = $filedialog->Show
-		 (-Path => File::Basename::dirname($act_val),
-		  -File => File::Basename::basename($act_val));
+	       if ($fd eq 'FileDialog') {
+		   $file = $filedialog->Show
+		     (-Path => File::Basename::dirname($act_val),
+		      -File => File::Basename::basename($act_val));
+	       } else {
+		   $file = $filedialog->Show
+		     (-directory => File::Basename::dirname($act_val));
+	       }
 	   } else {
 	       $file = $filedialog->Show;
 	   }
@@ -731,8 +746,8 @@ information.
 
 Example:
 
-    new Tk::Options(-getopt => [\%options,
-                                "opt1=i", "opt2=s" ...]);
+    new Tk::Getopt(-getopt => [\%options,
+                               "opt1=i", "opt2=s" ...]);
 
 =item -opttable
 
@@ -745,9 +760,9 @@ describing the options. The first element of this array is the name of
 the option, the second is the type (C<=s> for string, C<=i> for integer,
 C<!> for boolean, C<=f> for float etc., see L<Getopt::Long>) for a
 detailed list. The third element is optional and contains
-the default value (otherwise the default is undefined). The fourth
-element is optional too and describes further attributes. It have to be a
-reference to a hash with following keys:
+the default value (otherwise the default is undefined). Further
+elements are optional too and describes more attributes. The attributes
+have to be key-value pairs with following keys:
 
 =over
 
@@ -812,38 +827,38 @@ Here is an example for this rather complicated argument:
 	 ['debug', # name of the option (--debug)
           '!',     # type boolean, accept --nodebug
           0,       # default is 0 (false)
-          {'callback' => sub { $^W = 1 
-                                  if $options->{'debug'}; }
-           # additional attribute: callback to be called if
-           # you set or change the value
-          }],
+          callback => sub { $^W = 1 
+                                if $options->{'debug'}; }
+          # additional attribute: callback to be called if
+          # you set or change the value
+          ],
          ['age',
           '=i',    # option accepts integer value
           18,
-          {'strict' => 1, # value must be in range
-           'range' => [0, 100], # allowed range
-           'alias' => ['year', 'years'] # possible aliases
-          }],
+          strict => 1, # value must be in range
+          range => [0, 100], # allowed range
+          alias => ['year', 'years'] # possible aliases
+          ],
 	 'External', # Head of second group
          ['browser',
           '=s',    # option accepts string value
           'tkweb',
-          {'choices' => ['mosaic', 'netscape',
-                         'lynx', 'chimera'],
-           # choices for the list widget in the GUI
-           'label' => 'WWW browser program'
-           # label for the GUI instead of 'browser'
-          }],
+          choices => ['mosaic', 'netscape',
+                      'lynx', 'chimera'],
+          # choices for the list widget in the GUI
+          label => 'WWW browser program'
+          # label for the GUI instead of 'browser'
+          ],
          ['foo',
           '=f',    # option accepts float value
           undef,   # no default value
-          {'help' => 'This is a short help',
-           # help string for usage() and the help balloon
-           'longhelp' => 'And this is a slightly longer help'
-           # longer help displayed in the GUI's help window
-          }]);
-    new Tk::Options(-opttable => \@opttable,
-                    -options => \%options);
+          help => 'This is a short help',
+          # help string for usage() and the help balloon
+          longhelp => 'And this is a slightly longer help'
+          # longer help displayed in the GUI's help window
+          ]);
+    new Tk::Getopt(-opttable => \@opttable,
+                   -options => \%options);
 
 =item -options
 
@@ -899,7 +914,7 @@ Use the B<-opttable> variant of C<new> and mark all non-GUI options with
 B<nogui>, e.g.
 
     new Tk::Getopt(-opttable => ['not-in-gui', '!', undef,
-                                 {'nogui' => 1}], ...)
+                                 nogui => 1], ...)
 
 =item *
 
