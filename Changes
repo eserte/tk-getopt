@@ -1,5 +1,10 @@
 Revision history for Perl extension Tk::Getopt.
 
+0.48
+	- bugfixes (undo and default setting did not work with arrays and
+          hashes)
+	- new POD section COMPATIBILITY
+
 0.47
 	- don't croak on strict=>1 and undefined choices
 
