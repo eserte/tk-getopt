@@ -11,3 +11,4 @@ t/linkage2.t
 t/opttest
 t/simple.t
 t/simple2.t
+t/modern.t
