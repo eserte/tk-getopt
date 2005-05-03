@@ -1,5 +1,11 @@
 Revision history for Perl extension Tk::Getopt.
 
+0.49
+	- new button "oksave"
+	- test for "modern" behaviour (only with Ok, Apply and Cancel
+	  buttons)
+	- bugfixes
+
 0.48
 	- bugfixes (undo and default setting did not work with arrays and
           hashes)
