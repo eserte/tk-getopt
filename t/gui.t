@@ -23,6 +23,10 @@ $loaded = 1;
      'longhelp' => "This is an example for a longer help\nYou can use multiple lines\n",
      'subtype' => 'file',
     }],
+   ['newfile', '=s', undef,
+    {'help' => 'An option to specify a possible new file',
+     'subtype' => 'savefile',
+    }],
    ['exportfile', '=s', undef,
     {'choices' => ["/tmp/export.dat", "$ENV{HOME}/export.dat"],
      'subtype' => 'file'}],
@@ -165,7 +169,9 @@ if (!$opt->get_options) {
     die $opt->usage;
 }
 $top = new MainWindow;
-$top->withdraw;
+# Skip on Windows, because transient windows does not work with
+# withdrawn masters
+$top->withdraw if $^O ne "MSWin32";
 
 #eval {$opt->process_options};
 $opt->process_options;
