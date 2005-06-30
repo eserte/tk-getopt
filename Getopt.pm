@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.51 2005/06/26 12:07:08 eserte Exp $
+# $Id: Getopt.pm,v 1.52 2005/06/30 00:47:03 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998,1999,2000,2003 Slaven Rezic. All rights reserved.
@@ -217,7 +217,7 @@ sub load_options {
     foreach $opt ($self->_opt_array) {
 	if (exists $loadoptions->{$opt->[OPTNAME]}) {
 	    if (ref $self->_varref($opt) eq 'CODE') {
-		$self->_varref($opt)->($loadoptions->{$opt->[OPTNAME]}) if $loadoptions->{$opt->[OPTNAME]};
+		$self->_varref($opt)->($opt, $loadoptions->{$opt->[OPTNAME]}) if $loadoptions->{$opt->[OPTNAME]};
 	    } elsif (ref $self->_varref($opt) eq 'ARRAY' &&
 		     ref $loadoptions->{$opt->[OPTNAME]} eq 'ARRAY') {
 		@{ $self->_varref($opt) } = @{ $loadoptions->{$opt->[OPTNAME]} };
