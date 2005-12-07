@@ -109,7 +109,12 @@ $loaded = 1;
    ['debug', '!', 0, {'alias' => ['d']}],
    ['lang', '=s', undef,
     {'choices' => ['en', 'de', 'hr'], 'strict' => 1,
-     'label' => 'Language'}],
+     'label' => 'Language (with Browseentry)'}],
+   ['lang-alt', '=s', "hr",
+    {'choices' => [["english" => 'en'],
+		   ["deutsch" => 'de'],
+		   ["hrvatski" => 'hr']], 'strict' => 1,
+     'label' => 'Language (with Optionmenu)'}],
    ['stderr-extern', '!', 0,
     'callback-interactive' => sub { warn "Only called from GUI!" },
    ],
@@ -185,31 +190,44 @@ if (!defined $ENV{BATCH}) { $ENV{BATCH} = 1 }
 my $batch_mode = !!$ENV{BATCH};
 my $timerlen = ($batch_mode ? 1000 : 60*1000);
 
-$timer = $top->after
-    ($timerlen,
-     sub {
-	 if ($batch_mode) {
-	     foreach ($top->children) {
-		 $_->destroy;
+sub setup_timer {
+    $timer = $top->after
+	($timerlen,
+	 sub {
+	     if ($batch_mode) {
+		 foreach ($top->children) {
+		     $_->destroy;
+		 }
+	     } else {
+		 $t2 = $top->Toplevel(-popover => 'cursor');
+		 $t2->Label(-text => "Self-destruction in 5s")->pack;
+		 $t2->Popup;
+		 $top->after(5*1000, sub {
+				 foreach ($top->children) {
+				     $_->destroy;
+				 }
+			     });
 	     }
-	 } else {
-	     $t2 = $top->Toplevel(-popover => 'cursor');
-	     $t2->Label(-text => "Self-destruction in 5s")->pack;
-	     $t2->Popup;
-	     $top->after(5*1000, sub {
-			     foreach ($top->children) {
-				 $_->destroy;
-			     }
-			 });
-	 }
-     });
+	 });
+}
 
+setup_timer();
 $w = $opt->option_editor($top,
 			 -statusbar => 1,
 			 -popover => 'cursor',
 			 '-wait' => 1);
 $timer->cancel;
 
+setup_timer();
+# Should show x11 page
+$w = $opt->option_editor($top,
+			 -statusbar => 1,
+			 -popover => 'cursor',
+			 -page => 'x11',
+			 '-wait' => 1);
+$timer->cancel;
+
+# Should the same page again
 $w = $opt->option_editor($top,
 			 -transient => $top,
                          -buttons => [qw/ok apply cancel defaults/],
@@ -219,6 +237,8 @@ $w->resizable(0,0);
 $w->OnDestroy(sub {$top->destroy});
 
 $timerlen = ($batch_mode ? 1000 : 5*1000);
+
+$top->after($timerlen/2, sub { $opt->raise_page("extern") });
 $top->after($timerlen, sub { $w->destroy });
 
 #$top->WidgetDump;
