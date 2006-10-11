@@ -2,7 +2,7 @@
 # -*- perl -*-
 
 #
-# $Id: modern.t,v 1.1 2005/05/03 19:26:22 eserte Exp $
+# $Id: modern.t,v 1.2 2006/10/11 20:27:58 eserte Exp $
 # Author: Slaven Rezic
 #
 
@@ -12,16 +12,16 @@ BEGIN {
     if (!eval q{
 	use Test::More;
 	use File::Temp qw(tempfile);
+	use Tk;
 	1;
     }) {
-	print "1..0 # skip: no Test::More module\n";
+	print "1..0 # skip: no Test::More, File::Temp and/or Tk modules\n";
 	exit;
     }
 }
 
 plan tests => 1;
 
-use Tk;
 use Tk::Getopt;
 
 if (!defined $ENV{BATCH}) { $ENV{BATCH} = 1 }
