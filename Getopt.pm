@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.55 2006/10/11 20:28:15 eserte Exp $
+# $Id: Getopt.pm,v 1.56 2006/10/18 21:28:32 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998,1999,2000,2003 Slaven Rezic. All rights reserved.
@@ -913,7 +913,7 @@ sub _create_page {
 			   my $t = $f->Toplevel
 			       (-title => $self->{_string}{"helpfor"}
 				. " $label");
-			   $t->Label(-text => $opt->[OPTEXTRA]{'longhelp'},
+			   $t->Message(-text => $opt->[OPTEXTRA]{'longhelp'},
 				     -justify => 'left')->pack;
 			   $t->Button(-text => 'OK',
 				      -command => sub { $t->destroy }
