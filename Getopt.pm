@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.56 2006/10/18 21:28:32 eserte Exp $
+# $Id: Getopt.pm,v 1.57 2007/12/17 20:42:57 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998,1999,2000,2003 Slaven Rezic. All rights reserved.
@@ -24,7 +24,8 @@ use constant OPTTYPE  => 1;
 use constant DEFVAL   => 2;
 use constant OPTEXTRA => 3;
 
-$VERSION = '0.50-DEVEL';
+$VERSION = '0.49_50';
+$VERSION = eval $VERSION;
 
 $DEBUG = 0;
 $x11_pass_through = 0;
@@ -260,6 +261,7 @@ sub save_options {
 		}
 	    }
 	    local $Data::Dumper::Sortkeys = $Data::Dumper::Sortkeys = 1;
+	    local $Data::Dumper::Indent = $Data::Dumper::Indent = 1;
 	    if (Data::Dumper->can('Dumpxs')) {
 		# use faster version of Dump
 		print OPT
@@ -962,23 +964,27 @@ sub option_editor {
     my $transient = delete $a{'-transient'};
     my $use_statusbar = delete $a{'-statusbar'};
     my $wait      = delete $a{'-wait'};
-    my $string    = delete $a{'-string'};
+    my $string    = delete $a{'-string'} || {};
     my $delay_page_create = (exists $a{'-delaypagecreate'}
 			     ? delete $a{'-delaypagecreate'}
 			     : 1);
     my $page      = delete $a{'-page'};
-    if (!defined $string) {
-	$string = {'optedit'    => 'Option editor',
-		   'undo'       => 'Undo',
-		   'lastsaved'  => 'Last saved',
-		   'save'       => 'Save',
-		   'defaults'   => 'Defaults',
-		   'ok'         => 'OK',
-		   'apply'      => 'Apply',
-		   'cancel'     => 'Cancel',
-		   'helpfor'    => 'Help for:',
-		   'oksave'     => 'OK',
-	          };
+    {
+	my %defaults = ('optedit'    => 'Option editor',
+			'undo'       => 'Undo',
+			'lastsaved'  => 'Last saved',
+			'save'       => 'Save',
+			'defaults'   => 'Defaults',
+			'ok'         => 'OK',
+			'apply'      => 'Apply',
+			'cancel'     => 'Cancel',
+			'helpfor'    => 'Help for:',
+			'oksave'     => 'OK',
+		       );
+	for my $key (keys %defaults) {
+	    next if exists $string->{$key};
+	    $string->{$key} = $defaults{$key};
+	}
     }
     $self->{_string} = $string;
 
@@ -1613,9 +1619,10 @@ Use an additional status bar for help messages.
 
 =item -string
 
-Change button labels and title. This argument should be a hash reference
-with following keys: C<optedit>, C<undo>, C<lastsaved>, C<save>, C<defaults>,
-C<ok>, C<cancel>, C<helpfor>.
+Change button labels and title. This argument should be a hash
+reference with all or a subset of the following keys: C<optedit>,
+C<undo>, C<lastsaved>, C<save>, C<defaults>, C<ok>, C<cancel>,
+C<helpfor>.
 
 =item -wait
 
