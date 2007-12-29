@@ -1,3 +1,4 @@
+use 5.005;
 use ExtUtils::MakeMaker;
 
 $| = 1;
