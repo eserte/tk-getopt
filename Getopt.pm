@@ -1,10 +1,10 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.59 2008/01/06 13:39:28 eserte Exp $
+# $Id: Getopt.pm,v 1.60 2008/01/06 13:42:24 eserte Exp $
 # Author: Slaven Rezic
 #
-# Copyright (C) 1997,1998,1999,2000,2003,2007 Slaven Rezic. All rights reserved.
+# Copyright (C) 1997,1998,1999,2000,2003,2007,2008 Slaven Rezic. All rights reserved.
 # This package is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
@@ -24,7 +24,7 @@ use constant OPTTYPE  => 1;
 use constant DEFVAL   => 2;
 use constant OPTEXTRA => 3;
 
-$VERSION = '0.49_51';
+$VERSION = '0.49_52';
 $VERSION = eval $VERSION;
 
 $DEBUG = 0;
