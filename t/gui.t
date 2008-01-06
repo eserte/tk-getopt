@@ -2,7 +2,7 @@
 # -*- perl -*-
 
 #
-# $Id: gui.t,v 1.14 2006/10/11 20:22:19 eserte Exp $
+# $Id: gui.t,v 1.15 2008/01/06 13:39:18 eserte Exp $
 # Author: Slaven Rezic
 #
 
@@ -20,7 +20,7 @@ BEGIN {
     }
 }
 
-plan tests => 3;
+plan tests => 5;
 
 use_ok("Tk::Getopt");
 
@@ -193,8 +193,6 @@ $top->withdraw if $^O ne "MSWin32";
 $opt->process_options;
 if ($@) { warn $@ }
 
-my $w;
-
 if (!defined $ENV{BATCH}) { $ENV{BATCH} = 1 }
 
 my $batch_mode = !!$ENV{BATCH};
@@ -222,35 +220,52 @@ sub setup_timer {
 	 });
 }
 
-setup_timer();
-$w = $opt->option_editor($top,
-			 -statusbar => 1,
-			 -popover => 'cursor',
-			 '-wait' => 1);
-$timer->cancel;
+{
+    setup_timer();
+    my $w = $opt->option_editor($top,
+				-statusbar => 1,
+				-popover => 'cursor',
+				'-wait' => 1);
+    isa_ok($w, "Tk::Widget");
+    $timer->cancel;
+}
 
-setup_timer();
-# Should show x11 page
-$w = $opt->option_editor($top,
-			 -statusbar => 1,
-			 -popover => 'cursor',
-			 -page => 'x11',
-			 '-wait' => 1);
-$timer->cancel;
+{
+    setup_timer();
+    # Should show x11 page
+    my $w = $opt->option_editor($top,
+				-statusbar => 1,
+				-popover => 'cursor',
+				-page => 'x11',
+				'-wait' => 1);
+    $timer->cancel;
+}
 
-# Should the same page again
-$w = $opt->option_editor($top,
-			 -transient => $top,
-                         -buttons => [qw/ok apply cancel defaults/],
-			 -delaypagecreate => 0,
-			);
-$w->resizable(0,0);
-$w->OnDestroy(sub {$top->destroy});
+{
+    setup_timer();
+    my $answer = $opt->option_dialog($top,
+				     -statusbar => 1,
+				     -popover => 'cursor',
+				     -string => {optedit => 'Option Dialog'},
+				    );
+    ok(!defined $answer || $answer =~ m{^(ok|cancel)$}, "Expected answers");
+}
 
-$timerlen = ($batch_mode ? 1000 : 5*1000);
+{
+    # Should the same page again
+    my $w = $opt->option_editor($top,
+				-transient => $top,
+				-buttons => [qw/ok apply cancel defaults/],
+				-delaypagecreate => 0,
+			       );
+    $w->resizable(0,0);
+    $w->OnDestroy(sub {$top->destroy});
 
-$top->after($timerlen/2, sub { $opt->raise_page("extern") });
-$top->after($timerlen, sub { $w->destroy });
+    $timerlen = ($batch_mode ? 1000 : 5*1000);
+
+    $top->after($timerlen/2, sub { $opt->raise_page("extern") });
+    $top->after($timerlen, sub { $w->destroy });
+}
 
 #$top->WidgetDump;
 
