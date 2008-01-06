@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.58 2007/12/29 13:20:38 eserte Exp $
+# $Id: Getopt.pm,v 1.59 2008/01/06 13:39:28 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998,1999,2000,2003,2007 Slaven Rezic. All rights reserved.
@@ -954,6 +954,15 @@ sub _do_undo {
     }
 }
 
+sub option_dialog {
+    my($self, $top, %a) = @_;
+    my $button_pressed;
+    $a{'-buttonpressed'} = \$button_pressed;
+    $a{'-wait'} = 1;
+    $self->option_editor($top, %a);
+    $button_pressed;
+}
+
 sub option_editor {
     my($self, $top, %a) = @_;
     my $callback  = delete $a{'-callback'};
@@ -969,6 +978,16 @@ sub option_editor {
 			     ? delete $a{'-delaypagecreate'}
 			     : 1);
     my $page      = delete $a{'-page'};
+    my $button_pressed;
+    if (exists $a{'-buttonpressed'}) {
+	if (ref $a{'-buttonpressed'} ne "SCALAR") {
+	    die "The value for the -buttonpressed option has to be a SCALAR reference, not a " . ref($a{'-buttonpressed'}) . "\n";
+	}
+	$button_pressed = delete $a{'-buttonpressed'};
+    } else {
+	# dummy
+	$button_pressed = \do { my $dummy };
+    }
     {
 	my %defaults = ('optedit'    => 'Option editor',
 			'undo'       => 'Undo',
@@ -1151,6 +1170,7 @@ sub option_editor {
                                  $self->{'raised'} = $opt_notebook->raised();
                              }
                              $opt_editor->destroy;
+			     $$button_pressed = 'ok';
                          }
                         );
         push @tiler_b, $ok_button;
@@ -1175,6 +1195,7 @@ sub option_editor {
 				 die $err;
 			     }
                              $opt_editor->destroy;
+			     $$button_pressed = 'ok';
                          }
                         );
         push @tiler_b, $ok_button;
@@ -1200,6 +1221,7 @@ sub option_editor {
 				 $self->{'raised'} = $opt_notebook->raised();
 			     }
 			     $opt_editor->destroy;
+			     $$button_pressed = 'cancel';
 			 }
 			);
 	push @tiler_b, $cancel_button;
@@ -1554,6 +1576,9 @@ Pops the option editor up. The editor provides facilitied for editing
 options, undoing, restoring to their default valued and saving to the
 default options file.
 
+The option editor is non-modal. For a modal dialog, see below for the
+L</option_dialog> method.
+
 The first argument is the parent widget. Further optional arguments are
 passed as a hash:
 
@@ -1690,6 +1715,12 @@ B<BrowseEntry> if B<choices> is set, otherwise B<entry> (B<_string_widget>).
 B<FileDialog> if B<subtype> is set to B<file>.
 
 =back
+
+=item B<option_dialog(>I<widget>, [I<arguments ...>]B<)>
+
+This method works like L</option_editor>, but it shows the option
+editor as a modal dialog. Additionaly, the return value is either
+B<ok> or B<cancel> depending on how the user quits the editor.
 
 =back
 
