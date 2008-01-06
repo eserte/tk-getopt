@@ -60,6 +60,12 @@ EOF
 sub MY::postamble {
     my $postamble = "";
 
+    $postamble .= '
+demo :: pure_all
+	$(FULLPERL) -w -I$(SITELIBEXP)/Tk/demos/widget_lib -I$(SITEARCHEXP)/Tk/demos/widget_lib -I$(VENDORARCHEXP)/Tk/demos/widget_lib -Mblib demos/tk-getopt.pl
+
+';
+
     if (defined $ENV{USER} && $ENV{USER} eq 'eserte' && $^O =~ /bsd/i && -f "../../perl.release.mk") {
 	$postamble .= <<'EOF';
 
