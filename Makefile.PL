@@ -39,6 +39,7 @@ WriteMakefile
      'NAME'	=> 'Tk::Getopt',
      'VERSION_FROM' => 'Getopt.pm', # finds $VERSION
      # no PREREQ, because everything is in fact optional...
+     'LICENSE'  => 'perl',
     );
 
 sub MY::postamble {
