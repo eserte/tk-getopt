@@ -8,6 +8,7 @@ Revision history for Perl extension Tk::Getopt.
 	- method varref is official now (formerly private method _varref)
 	- new metho optextra
 	- Pod update
+	- added some missing keys to the Makefile.PL
 
 0.49
 	- new button "oksave"
