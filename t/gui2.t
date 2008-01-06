@@ -2,7 +2,7 @@
 # -*- perl -*-
 
 #
-# $Id: gui2.t,v 1.5 2006/10/11 20:27:11 eserte Exp $
+# $Id: gui2.t,v 1.6 2008/01/06 17:46:03 eserte Exp $
 # Author: Slaven Rezic
 #
 
@@ -58,7 +58,14 @@ my @opttable =
 			   'help' => $dialbug}],
    ['defint', '=i', 50,
     {'range' => [0, 100],
-     'widget' => sub { shift->Tk::Getopt::_number_widget(@_)}}]);
+     'widget' => sub { shift->Tk::Getopt::_number_widget(@_)},
+    },
+   ],
+   ['numentry', '=i', 50,
+    range => [0, 100],
+    widget => sub { numentry_widget(@_) },
+   ],
+  );
 
 my $opt = new MyOptions(-opttable => \@opttable);
 isa_ok($opt, "MyOptions");
@@ -91,4 +98,23 @@ sub in_frame {
     $e->waitWindow;
     ok(1);
     $top->destroy;
+}
+
+sub numentry_widget {
+    my($self, $frame, $opt) = @_;
+    my $NumEntry = "NumEntry";
+    my $v = $self->_varref($opt);
+    my @NumEntryArgs = (-minvalue => $opt->[3]{range}[0],
+			-maxvalue => $opt->[3]{range}[1],
+			-value => $$v,
+		       );
+    if (!eval { require Tk::NumEntry; 1 }) {
+	diag "Tk::NumEntry not available, fallback to plain Tk::Entry";
+	$NumEntry = "Entry";
+	@NumEntryArgs = ();
+    }
+
+    $frame->$NumEntry(@NumEntryArgs,
+		      -textvariable => $v,
+		     );
 }
