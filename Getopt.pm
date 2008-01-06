@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.61 2008/01/06 18:35:49 eserte Exp $
+# $Id: Getopt.pm,v 1.62 2008/01/06 19:47:30 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998,1999,2000,2003,2007,2008 Slaven Rezic. All rights reserved.
@@ -24,7 +24,7 @@ use constant OPTTYPE  => 1;
 use constant DEFVAL   => 2;
 use constant OPTEXTRA => 3;
 
-$VERSION = '0.49_53';
+$VERSION = '0.49_54';
 $VERSION = eval $VERSION;
 
 $DEBUG = 0;
