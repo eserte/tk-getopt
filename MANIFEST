@@ -12,3 +12,4 @@ t/opttest
 t/simple.t
 t/simple2.t
 t/modern.t
+demos/tk-getopt.pl
