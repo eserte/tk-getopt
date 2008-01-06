@@ -1,87 +1,33 @@
-=head1 NAME
+Tk::Getopt
 
-Tk::Getopt - User configuration window for Tk with interface to Getopt::Long
+Tk::Getopt is an option editor for Perl/Tk. It also provides an
+interface to Getopt::Long, so options may be entered at command line,
+saved to an options file, or set in the option editor.
 
-=for category Derived Widgets
+To install, type
 
-=head1 SYNOPSIS
+	cpan .
 
-    use Tk::Getopt;
-    @opttable = (['opt1', '=s', 'default'], ['opt2', '!', 1], ...);
-    $opt = new Tk::Getopt(-opttable => \@opttable,
-                          -options => \%options,
-			  -filename => "$ENV{HOME}/.options");
-    $opt->load_options;
-    $opt->get_options;
-    $opt->process_options;
-    print $options->{'opt1'}, $options->{'opt2'} ...;
-    ...
-    $top = new MainWindow;
-    $opt->option_editor($top);
-
-or using a L<Getopt::Long|Getopt::Long>-like interface
-
-    $opt = new Tk::Getopt(-getopt => ['help'   => \$HELP,
-				      'file:s' => \$FILE,
-				      'foo!'   => \$FOO,
-				      'num:i'  => \$NO,
-				     ]);
-
-or an alternative F<Getopt::Long> interface
-
-    %optctl = ('foo' => \$foo,
-	       'bar' => \$bar);
-    $opt = new Tk::Getopt(-getopt => [\%optctl, "foo!", "bar=s"]);
-
-=head1 DESCRIPTION
-
-F<Tk::Getopt> provides an interface to access command line options via
-L<Getopt::Long|Getopt::Long> and editing with a graphical user
-interface via a Tk window.
-
-Unlike F<Getopt::Long>, this package uses a object oriented interface,
-so you have to create a new F<Tk::Getopt> object with B<new>. Unlike
-other packages in the Tk hierarchy, this package does not define a Tk
-widget. The graphical interface is calles by the method
-B<option_editor>.
-
-After creating an object with B<new>, you can parse command line
-options by calling B<get_options>. This method calls itself
-B<Getopt::Long::GetOptions>.
-
-=head1 REQUIREMENTS
-
-You need at least:
-
-=over 4
-
-=item *
-
-perl5.004 (perl5.003 near 5.004 may work too, e.g perl5.003_26)
-
-=item *
-
-Tk400.202 (better: Tk800.007) (only if you want the GUI)
-
-=item *
-
-Data-Dumper-2.07 (only if you want to save options and it's anyway
-standard in perl5.005)
-
-=back
-
-=head1 INSTALLATION
+if you have a modern CPAN.pm, otherwise
 
 	perl Makefile.PL
 	make
 	make test
 	make install
 
-=head1 AUTHOR
+For a demonstration you can type
 
-Slaven Rezic <slaven@rezic.de>
+	make demo
 
-This package is free software; you can redistribute it and/or
-modify it under the same terms as Perl itself.
+after the "make" phase.
 
-=cut
+For Windows NT and ActiveState Perl, replace "make" with "nmake", if
+you have the Visual C++ compiler available. Otherwise, just copy
+Getopt.pm to C:\Perl\lib\site\Tk.
+
+For Strawberry or Vanilla Perl, replace "make" with "dmake".
+
+Additional requirements besides Tk are listed in the META.yml. (Even
+Tk is not really a prerequisite, but it's highly recommended)
+
+Send bug reports, comments and suggestions to srezic@cpan.org
