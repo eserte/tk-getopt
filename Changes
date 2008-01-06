@@ -4,6 +4,7 @@ Revision history for Perl extension Tk::Getopt.
 	- new method option_dialog (like option_editor, just modal with
 	  the button pressed as return value). See
 	  https://rt.cpan.org/Ticket/Display.html?id=27647
+	- prefer chooseDirectory over Tk::DirSelect, if available
 
 0.49
 	- new button "oksave"
