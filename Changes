@@ -5,6 +5,9 @@ Revision history for Perl extension Tk::Getopt.
 	  the button pressed as return value). See
 	  https://rt.cpan.org/Ticket/Display.html?id=27647
 	- prefer chooseDirectory over Tk::DirSelect, if available
+	- method varref is official now (formerly private method _varref)
+	- new metho optextra
+	- Pod update
 
 0.49
 	- new button "oksave"
