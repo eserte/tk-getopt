@@ -6,7 +6,8 @@ Revision history for Perl extension Tk::Getopt.
 	  https://rt.cpan.org/Ticket/Display.html?id=27647
 	- prefer chooseDirectory over Tk::DirSelect, if available
 	- method varref is official now (formerly private method _varref)
-	- new metho optextra
+	- new method optextra
+	- added "make demo" rule
 	- Pod update
 	- added some missing keys to the Makefile.PL
 
