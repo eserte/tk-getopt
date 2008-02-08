@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.63 2008/02/08 22:02:03 eserte Exp $
+# $Id: Getopt.pm,v 1.64 2008/02/08 22:23:56 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998,1999,2000,2003,2007,2008 Slaven Rezic. All rights reserved.
@@ -250,7 +250,7 @@ sub save_options {
     eval "require Data::Dumper";
     if ($@) {
 	warn $@;
-	die "No Data::Dumper\n";
+	$self->my_die("No Data::Dumper available, cannot save options.\n");
     } else {
 	if (open(OPT, ">$filename")) {
 	    my %saveoptions;
@@ -436,7 +436,7 @@ sub process_options {
 }
 
 sub my_die {
-    my($self, $msg) = @_;
+    my($self, $msg, $is_safe) = @_;
     my $use_tk;
     if ($self->{'useerrordialog'} && defined &Tk::MainWindow::Existing) {
 	for my $mw (Tk::MainWindow::Existing()) {
@@ -445,7 +445,7 @@ sub my_die {
 		last;
 	    }
 	}
-	if ($use_tk) {
+	if ($use_tk && !defined $is_safe) {
 	    for(my $i=0; $i<100; $i++) {
 		my(undef,undef,undef,$subroutine) = caller($i);
 		last if !defined $subroutine;
@@ -1241,7 +1241,7 @@ sub option_editor {
 			     my $err = $@;
 			     $top->Unbusy;
 			     if ($err) {
-				 die $err;
+				 $self->my_die($err, 'safe');
 			     }
                              $opt_editor->destroy;
 			     $$button_pressed = 'ok';
@@ -1550,10 +1550,12 @@ If set to true, do not use a safe compartment when loading options
 
 =item -useerrordialog
 
-If set to true, then use an error dialog in error conditions.
-Otherwise, the error message is printed to STDERR. If no Tk context is
-available (i.e. there is no MainWindow), then the error message will
-also be printed to STDERR.
+If set to true, then use an error dialog in user-relevant error
+conditions. Otherwise, the error message is printed to STDERR. This
+only includes errors which may happen in normal operation, but not
+programming errors like specifying erroneous options. If no Tk context
+is available (i.e. there is no MainWindow), then the error message
+will also be printed to STDERR.
 
 =back
 
