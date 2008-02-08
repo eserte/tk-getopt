@@ -2,7 +2,7 @@
 # -*- perl -*-
 
 #
-# $Id: gui2.t,v 1.7 2008/01/06 18:37:04 eserte Exp $
+# $Id: gui2.t,v 1.8 2008/02/08 22:28:58 eserte Exp $
 # Author: Slaven Rezic
 #
 
@@ -81,7 +81,11 @@ my $batch_mode = !!$ENV{BATCH};
 my $timerlen = ($batch_mode ? 1000 : 60*1000);
 
 use Tk;
-my $top = new MainWindow;
+my $top = eval { new MainWindow };
+if (!$top) {
+ SKIP: { skip "Cannot create MainWindow, probably no DISPLAY available", 12-2 }
+    exit 0;
+}
 $top->after(100, sub {
 		my $e = $opt->option_editor($top);
 		$e->after($timerlen, sub { $e->destroy });

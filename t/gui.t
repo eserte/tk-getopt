@@ -2,7 +2,7 @@
 # -*- perl -*-
 
 #
-# $Id: gui.t,v 1.15 2008/01/06 13:39:18 eserte Exp $
+# $Id: gui.t,v 1.16 2008/02/08 22:29:04 eserte Exp $
 # Author: Slaven Rezic
 #
 
@@ -184,7 +184,12 @@ $opt->load_options;
 if (!$opt->get_options) {
     die $opt->usage;
 }
-$top = new MainWindow;
+$top = eval { new MainWindow };
+if (!$top) {
+ SKIP: { skip "Cannot create MainWindow, probably no DISPLAY available", 3 }
+    exit 0;
+}
+
 # Skip on Windows, because transient windows does not work with
 # withdrawn masters
 $top->withdraw if $^O ne "MSWin32";

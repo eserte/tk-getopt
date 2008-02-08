@@ -2,7 +2,7 @@
 # -*- perl -*-
 
 #
-# $Id: modern.t,v 1.2 2006/10/11 20:27:58 eserte Exp $
+# $Id: modern.t,v 1.3 2008/02/08 22:28:54 eserte Exp $
 # Author: Slaven Rezic
 #
 
@@ -28,7 +28,12 @@ if (!defined $ENV{BATCH}) { $ENV{BATCH} = 1 }
 
 my $batch_mode = !!$ENV{BATCH};
 
-my $mw = tkinit;
+my $mw = eval { tkinit };
+if (!$mw) {
+ SKIP: { skip "Cannot create MainWindow, probably no DISPLAY available", 1 }
+    exit 0;
+}
+
 my $l1 = $mw->Label->pack;
 my $l2 = $mw->Label->pack;
 
