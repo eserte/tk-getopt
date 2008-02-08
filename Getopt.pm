@@ -1,7 +1,7 @@
 # -*- perl -*-
 
 #
-# $Id: Getopt.pm,v 1.62 2008/01/06 19:47:30 eserte Exp $
+# $Id: Getopt.pm,v 1.63 2008/02/08 22:02:03 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1997,1998,1999,2000,2003,2007,2008 Slaven Rezic. All rights reserved.
@@ -23,6 +23,8 @@ use constant OPTNAME  => 0;
 use constant OPTTYPE  => 1;
 use constant DEFVAL   => 2;
 use constant OPTEXTRA => 3;
+
+use Carp qw();
 
 $VERSION = '0.49_54';
 $VERSION = eval $VERSION;
@@ -131,9 +133,10 @@ sub new {
 	die "No opttable array ref or getopt hash ref";
     }
 
-    $self->{'caller'}   = (caller)[0];
-    $self->{'filename'} = delete $a{'-filename'};
-    $self->{'nosafe'}   = delete $a{'-nosafe'};
+    $self->{'caller'}         = (caller)[0];
+    $self->{'filename'}       = delete $a{'-filename'};
+    $self->{'nosafe'}         = delete $a{'-nosafe'};
+    $self->{'useerrordialog'} = delete $a{'-useerrordialog'};
 
     die "Unrecognized arguments: " . join(" ", %a) if %a;
 
@@ -281,8 +284,7 @@ sub save_options {
 	    warn "Options written to $filename" if $DEBUG;
 	    1;
 	} else {
-	    warn "Can't write to $filename";
-	    die "Writing failed\n";
+	    $self->my_die("Writing to config file <$filename> failed: $!\n");
 	    undef;
 	}
     }
@@ -430,6 +432,42 @@ sub process_options {
 		}
 	    }
 	}
+    }
+}
+
+sub my_die {
+    my($self, $msg) = @_;
+    my $use_tk;
+    if ($self->{'useerrordialog'} && defined &Tk::MainWindow::Existing) {
+	for my $mw (Tk::MainWindow::Existing()) {
+	    if (Tk::Exists($mw)) {
+		$use_tk = $mw;
+		last;
+	    }
+	}
+	if ($use_tk) {
+	    for(my $i=0; $i<100; $i++) {
+		my(undef,undef,undef,$subroutine) = caller($i);
+		last if !defined $subroutine;
+		if ($subroutine eq '(eval)') {
+		    $use_tk = 0;
+		    last;
+		}
+	    }
+	}
+    }
+    if ($use_tk) {
+	eval {
+	    $use_tk->messageBox(-icon    => "error",
+				-message => $msg,
+				-title   => "Error",
+			       );
+	};
+	if ($@) {
+	    Carp::croak($msg);
+	}
+    } else {
+	Carp::croak($msg);
     }
 }
 
@@ -1509,6 +1547,13 @@ options.
 
 If set to true, do not use a safe compartment when loading options
 (see B<load_options>).
+
+=item -useerrordialog
+
+If set to true, then use an error dialog in error conditions.
+Otherwise, the error message is printed to STDERR. If no Tk context is
+available (i.e. there is no MainWindow), then the error message will
+also be printed to STDERR.
 
 =back
 
