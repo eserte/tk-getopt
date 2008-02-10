@@ -44,6 +44,7 @@ WriteMakefile
      ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
       ('ABSTRACT_FROM' => 'Getopt.pm',
        'AUTHOR'        => 'Slaven Rezic <srezic@cpan.org>'
+       'LICENSE'       => 'perl',
       ) : ()
      ),
      # Test::More is really a build_recomments, but this is not available
