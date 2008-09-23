@@ -1,6 +1,6 @@
 Revision history for Perl extension Tk::Getopt.
 
-0.50 (to-be)
+0.50
 	- new method option_dialog (like option_editor, just modal with
 	  the button pressed as return value). See
 	  https://rt.cpan.org/Ticket/Display.html?id=27647
