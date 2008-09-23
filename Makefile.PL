@@ -43,7 +43,7 @@ WriteMakefile
      'LICENSE'  => 'perl',
      ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
       ('ABSTRACT_FROM' => 'Getopt.pm',
-       'AUTHOR'        => 'Slaven Rezic <srezic@cpan.org>'
+       'AUTHOR'        => 'Slaven Rezic <srezic@cpan.org>',
        'LICENSE'       => 'perl',
       ) : ()
      ),
