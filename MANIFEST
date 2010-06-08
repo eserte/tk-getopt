@@ -1,8 +1,10 @@
+.gitignore
 Changes
 MANIFEST
 Makefile.PL
 Getopt.pm
 README
+t/error.t
 t/getopt.t
 t/getopt2.t
 t/gui.t

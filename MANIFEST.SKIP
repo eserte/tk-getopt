@@ -1,5 +1,6 @@
 # common files
 \bRCS\b
+^\.git/
 \bChangeLog\b
 ^MANIFEST\.
 \bMakefile$

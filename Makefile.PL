@@ -38,8 +38,13 @@ WriteMakefile
     (
      'NAME'	=> 'Tk::Getopt',
      'VERSION_FROM' => 'Getopt.pm', # finds $VERSION
-     # no PREREQ, because everything is in fact optional...
-     'PREREQ_PM'         => {},
+     # in fact everything is optional, but usually everyone wants the
+     # gui features of Tk::Getopt
+     'PREREQ_PM'         => { 'Tk'             => 804,
+			      'Tk::FontDialog' => 0,
+			      'Data::Dumper'   => 0,
+			      'Test::More'     => 0,
+			    },
      'LICENSE'  => 'perl',
      ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
       ('ABSTRACT_FROM' => 'Getopt.pm',
@@ -47,15 +52,11 @@ WriteMakefile
        'LICENSE'       => 'perl',
       ) : ()
      ),
-     # Test::More is really a build_recomments, but this is not available
-     # in META.yml
-     'EXTRA_META' => <<EOF,
-recommends:
-    Tk: 804
-    Tk::FontDialog: 0
-    Data::Dumper: 0
-    Test::More: 0
-EOF
+    ($ExtUtils::MakeMaker::VERSION >= 6.54 ?
+      (META_ADD => { resources => { repository =>
+				    'git://github.com/eserte/p5-Kwalify.git'
+				  },
+		   }) : ()),
     );
 
 sub MY::postamble {
@@ -71,7 +72,7 @@ demo :: pure_all
 	$postamble .= <<'EOF';
 
 .include "../../perl.release.mk"
-.include "../../perl.cvs.mk"
+.include "../../perl.git.mk"
 
 EOF
     }
