@@ -32,6 +32,18 @@ EOF
     print STDERR " ok\n";
 }
 
+my $eumm_recent_enough = $ExtUtils::MakeMaker::VERSION >= 6.54;
+
+if (!$eumm_recent_enough) {
+    *MY::dist_core = sub {
+	<<'EOF';
+dist :
+	$(NOECHO) $(ECHO) "Sorry, use a newer EUMM!"
+
+EOF
+    };
+}
+
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 WriteMakefile
@@ -52,7 +64,7 @@ WriteMakefile
        'LICENSE'       => 'perl',
       ) : ()
      ),
-    ($ExtUtils::MakeMaker::VERSION >= 6.54 ?
+    ($eumm_recent_enough ?
       (META_ADD => { resources => { repository =>
 				    'git://github.com/eserte/p5-Kwalify.git'
 				  },
