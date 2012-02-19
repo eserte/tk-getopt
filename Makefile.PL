@@ -66,7 +66,7 @@ WriteMakefile
      ),
     ($eumm_recent_enough ?
       (META_ADD => { resources => { repository =>
-				    'git://github.com/eserte/p5-Kwalify.git'
+				    'git://github.com/eserte/tk-getopt.git'
 				  },
 		   }) : ()),
     );
