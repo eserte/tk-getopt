@@ -149,7 +149,7 @@ sub tk_getopt {
 
 	);
 
-    my(undef,$optfilename) = tempfile(SUFFIX => ".tk-getopt");
+    my(undef,$optfilename) = tempfile(SUFFIX => ".tk-getopt", UNLINK => 1);
     my $opt = new Tk::Getopt(-opttable => \@opttable,
 			     -options => $options,
 			     -filename => $optfilename);
@@ -173,6 +173,21 @@ sub tk_getopt {
 						     );
 		     if (defined $answer) {
 			 $top->messageBox(-message => "The button pressed was <$answer>.");
+			 if ($answer eq 'ok') {
+			     my $config_data = do {
+				 open my $fh, $optfilename
+				     or die "Error while opening $optfilename: $!";
+				 local $/;
+				 <$fh>;
+			     };
+			     my $t = $top->Toplevel(-title => 'Contents of config file');
+			     my $txt = $t->Scrolled('ROText', -wrap => 'none', -scrollbars => 'oe')->pack(qw(-fill both -expand 1));
+			     $txt->insert('end', $config_data);
+			     my $wait = 1;
+			     $t->Button(-text => 'Ok', -command => sub { $wait = 0 })->pack;
+			     $t->waitVariable(\$wait);
+			     $t->destroy;
+			 }
 		     } else {
 			 $top->messageBox(-message => "Undefined answer, probably closed via the window manager close button.");
 		     }
