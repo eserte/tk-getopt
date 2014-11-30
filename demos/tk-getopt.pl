@@ -1,6 +1,9 @@
 # User configuration window for Tk with interface to Getopt::Long.
 # -*- perl -*-
 
+use strict;
+use vars qw($MW);
+
 use Tk;
 use Tk::Getopt;
 use File::Temp qw(tempfile);
@@ -16,6 +19,7 @@ sub tk_getopt {
       );
     my $top = $demo_widget->Top;   # get geometry master
 
+    my $options = {};
     my @opttable =
 	(			#'loading',
 	 ['adbfile', '=s', undef, 
@@ -145,7 +149,6 @@ sub tk_getopt {
 
 	);
 
-    my $options = {};
     my(undef,$optfilename) = tempfile(SUFFIX => ".tk-getopt");
     my $opt = new Tk::Getopt(-opttable => \@opttable,
 			     -options => $options,
