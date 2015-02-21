@@ -46,6 +46,7 @@ SKIP: {
     my $mw = eval { tkinit };
     skip("Cannot create MainWindow", 3)
 	if !$mw;
+    $mw->geometry('+10+10'); # for twm
 
     eval { $opt->save_options };
     ok($@, "Called within eval, still no window");

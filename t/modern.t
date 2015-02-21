@@ -33,6 +33,7 @@ if (!$mw) {
  SKIP: { skip "Cannot create MainWindow, probably no DISPLAY available", 1 }
     exit 0;
 }
+$mw->geometry('+10+10'); # for twm
 
 my $l1 = $mw->Label->pack;
 my $l2 = $mw->Label->pack;
