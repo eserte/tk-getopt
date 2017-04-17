@@ -1,37 +1,6 @@
 use 5.005;
 use ExtUtils::MakeMaker;
 
-print STDERR "Checking for Tk...";
-eval {
-    require Tk;
-};
-if ($@) {
-    print STDERR " failed\n", <<EOF;
-$@
-The GUI part of Tk::Getopt will not work without Tk. Please install
-the Tk distribution (e.g. Tk402.202).
-
-EOF
-  sleep 2;
-} else {
-    print STDERR " ok\n";
-}
-
-print STDERR "Checking for Data::Dumper...";
-eval {
-    require Data::Dumper;
-};
-if ($@) {
-    print STDERR " failed\n", <<EOF;
-$@
-Data::Dumper is used to store options permanently to a file.
-
-EOF
-  sleep 2;
-} else {
-    print STDERR " ok\n";
-}
-
 my $eumm_recent_enough = $ExtUtils::MakeMaker::VERSION >= 6.54;
 
 if (!$eumm_recent_enough) {
