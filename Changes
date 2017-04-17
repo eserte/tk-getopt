@@ -1,5 +1,11 @@
 Revision history for Perl extension Tk::Getopt.
 
+0.50_50 2017-04-17
+	- fix do() calls with relative paths (PERL_USE_UNSAFE_INC=0)
+	- fix tests for ancient window managers (twm)
+	- use Cwd::getcwd() instead of Cwd::cwd()
+	- META.yml additions, .travis.yml etc.
+
 0.50
 	- new method option_dialog (like option_editor, just modal with
 	  the button pressed as return value). See
