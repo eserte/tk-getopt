@@ -56,6 +56,7 @@ WriteMakefile
 			      'Tk::FontDialog' => 0,
 			      'Data::Dumper'   => 0,
 			      'Test::More'     => 0,
+			      'File::Spec'     => 0,
 			    },
      'LICENSE'  => 'perl',
      ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
