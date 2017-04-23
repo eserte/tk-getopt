@@ -1,5 +1,8 @@
 Revision history for Perl extension Tk::Getopt.
 
+0.51    2017-04-23
+	- stable release with all changes in 0.50_50
+
 0.50_50 2017-04-17
 	- fix do() calls with relative paths (PERL_USE_UNSAFE_INC=0)
 	- fix tests for ancient window managers (twm)
