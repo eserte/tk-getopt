@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches-ignore:
+      - '*travis*'
+      - '*appveyor*'
+      - '*doozer*'
+  pull_request:
+
+jobs:
+  test:
+    name: ${{ matrix.os }} + ${{ matrix.window_manager }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os:             'ubuntu-20.04'
+            window_manager: 'kwin'
+          - os:             'ubuntu-22.04'
+            window_manager: 'fvwm'
+          - os:             'ubuntu-22.04'
+            window_manager: 'twm'
+
+    steps:
+    - name: apt hacks
+      # removing non-needed apt repositories may speed up "apt-get update"
+      # also, 3rd party repositories might be unreliable
+      run: |
+        sudo rm -f /etc/apt/sources.list.d/*.list
+        sudo apt-get update -qq
+      if: "startsWith(matrix.os, 'ubuntu-')"
+    - uses: actions/checkout@v3
+    - name: Preinstall
+      env:
+        WINDOW_MANAGER: ${{ matrix.window_manager }}
+      run: |
+        set -e
+        sudo apt-get install -qq --no-install-recommends cpanminus xvfb perl-tk $([ "$WINDOW_MANAGER" = "kwin" ] && echo -n "kwin-x11" || echo -n $WINDOW_MANAGER)
+        cpanm --sudo --quiet --installdeps --notest . || ( cat ~/.cpanm/work/*/build.log; false )
+    - name: Configure, Build and Test
+      env:
+        HARNESS_TIMER:   1
+        HARNESS_OPTIONS: j8
+        WINDOW_MANAGER: ${{ matrix.window_manager }}
+      run: |
+        Xvfb :123 &
+        export DISPLAY=:123
+        (sleep 10; $WINDOW_MANAGER) &
+        perl Makefile.PL
+        make -j8
+        make test
+      if: "!startsWith(matrix.os,'windows-')"
+
+  test_in_container:
+    name: Test with perl ${{ matrix.perlimage }}
+    runs-on: ubuntu-latest
+    container: perl:${{ matrix.perlimage }}
+    strategy:
+      matrix:
+        include:
+          - perlimage: 5.8.9-threaded-stretch
+          - perlimage: 5.10.1-buster
+          - perlimage: 5.12.5-stretch
+          - perlimage: 5.14.4-stretch
+          - perlimage: 5.16.3-buster
+          - perlimage: 5.18.4-buster
+          - perlimage: 5.22.4-stretch
+          - perlimage: 5.36.0-bullseye
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: "build and test"
+      run: |
+        apt-get update -qq && apt-get install -qq --no-install-recommends cpanminus xvfb libx11-dev libfreetype6-dev libxft-dev libpng-dev libz-dev libjpeg-dev twm
+        cpanm --quiet --installdeps --notest . || ( cat ~/.cpanm/work/*/build.log; false )
+        Xvfb :123 &
+        export DISPLAY=:123
+        (sleep 10; twm) &
+        perl Makefile.PL
+        make -j8
+        HARNESS_TIMER=1 HARNESS_OPTIONS=j8 make test
