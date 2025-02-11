@@ -16,12 +16,12 @@ jobs:
     strategy:
       matrix:
         include:
-          - os:             'ubuntu-20.04'
-            window_manager: 'kwin'
+          - os:             'ubuntu-22.04'
+            window_manager: 'twm'
           - os:             'ubuntu-22.04'
             window_manager: 'fvwm'
           - os:             'ubuntu-24.04'
-            window_manager: 'twm'
+            window_manager: 'kwin'
 
     steps:
     - name: apt hacks
